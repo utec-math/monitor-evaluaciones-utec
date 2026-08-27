@@ -21,6 +21,7 @@ import { firebaseConfig } from "./firebase-config.js";
 const app=initializeApp(firebaseConfig),db=getDatabase(app),$=id=>document.getElementById(id);
 let active=false,session='',student=null,hb=null,objectModel=null,detectionBusy=false,phoneHits=[],lastPhoneAlert=0,hiddenAt=null,offlineAt=null;
 const PHONE_MIN_CONFIDENCE=.30,PHONE_IMMEDIATE_CONFIDENCE=.50,PHONE_WINDOW_MS=6000,PHONE_REQUIRED_HITS=2,PHONE_ALERT_COOLDOWN_MS=20000,DETECT_EVERY_MS=800;
+const urlSession=new URLSearchParams(location.search).get('session');if(urlSession){$('session').value=urlSession;$('session').readOnly=true;$('session').title='Código recibido desde el enlace del docente'}
 $('startBtn').onclick=start;
 function clean(x){return x.replace(/[.#$/\[\]]/g,'-').slice(0,80)}
 function studentLevel(current,next){const r={green:0,yellow:1,orange:2,red:3};return(r[next]||0)>(r[current]||0)?next:current}
