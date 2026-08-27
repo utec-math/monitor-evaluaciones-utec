@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor UTEC · Estudiante</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;margin:0}.wrap{max-width:760px;margin:24px auto;padding:0 14px}.head{background:#123f4f;color:#fff;padding:18px;border-radius:12px 12px 0 0}.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:18px;border-radius:0 0 12px 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{border:1px solid #dce6e9;border-radius:10px;padding:14px;background:#fbfdfe}input{width:100%;padding:9px;border:1px solid #cfdde1;border-radius:7px;margin-top:5px}.btn{border:0;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;margin:4px}.teal{background:#15949b;color:#fff}.yellow{background:#fff3cf;color:#7c5e13}.orange{background:#fde8d8;color:#9a4b16}.red{background:#fde3e3;color:#9c3030}.muted{font-size:12px;color:#74868d}video{width:100%;background:#111;border-radius:9px;min-height:180px}.status{padding:10px;border-radius:8px;background:#eef7f7;margin-top:10px}.notice{font-size:12px;line-height:1.45;background:#f2f8f9;border-left:4px solid #15949b;padding:10px;margin-bottom:12px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="head"><div style="font-size:11px;color:#9fd8d7;font-weight:700;letter-spacing:1.2px">UTEC · EVALUACIÓN</div><div style="font-size:24px;font-weight:800">Monitor de sesión</div></div>
+ <div class="card">
+  <div class="notice"><b>Información:</b> esta página registra eventos técnicos durante la evaluación. La versión objetivo procesa cámara localmente y no transmite video continuo al docente.</div>
+  <div class="grid">
+   <div class="box">
+    <label>Nombre completo<input id="name" placeholder="Nombre y apellido"></label><br>
+    <label>ID / cédula<input id="sid" placeholder="Documento"></label><br>
+    <label>Código de sesión<input id="session" value="CALCULO-II-260826"></label>
+    <div style="margin-top:10px"><button class="btn teal" id="startBtn">Iniciar monitoreo</button></div>
+    <div id="state" class="status">Sin iniciar</div>
+   </div>
+   <div class="box">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="muted" style="margin-top:6px">La cámara se procesa únicamente en este navegador en esta etapa.</div>
+   </div>
+  </div>
+  <div class="box" style="margin-top:12px">
+   <b>Prueba técnica de alertas</b>
+   <div class="muted">Luego estos eventos serán generados por los detectores automáticos.</div>
+   <div style="margin-top:8px">
+    <button class="btn yellow" data-t="fuera_de_camara" data-l="yellow" data-d="Rostro no visible durante más de 20 s">Sin rostro</button>
+    <button class="btn red" data-t="multiples_rostros" data-l="red" data-d="Se detectaron 2 rostros">2 rostros</button>
+    <button class="btn red" data-t="telefono" data-l="red" data-d="Posible teléfono visible en cámara">Teléfono</button>
+    <button class="btn yellow" data-t="cambio_pestana" data-l="yellow" data-d="La página perdió visibilidad">Cambio de pestaña</button>
+    <button class="btn orange" data-t="reconexion" data-l="orange" data-d="Reconexión repetida">Reconexión</button>
+   </div>
+  </div>
+ </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getDatabase, ref, set, push, update, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app=initializeApp(firebaseConfig), db=getDatabase(app);
+let active=false, session='', student=null, hb=null;
+const $=id=>document.getElementById(id);
+
+$('startBtn').onclick=start;
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>eventSend(b.dataset.t,b.dataset.l,b.dataset.d));
+
+function clean(x){return x.replace(/[.#$/\[\]]/g,'-').slice(0,80)}
+function studentLevel(current,next){const r={green:0,yellow:1,orange:2,red:3};return (r[next]||0)>(r[current]||0)?next:current}
+
+async function start(){
+ const name=$('name').value.trim(), sid=clean($('sid').value.trim()), sess=clean($('session').value.trim());
+ if(!name||!sid||!sess){alert('Completá nombre, documento y código de sesión.');return}
+ student={id:sid,name,level:'green'};session=sess;active=true;
+
+ try{
+   const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+   $('video').srcObject=stream;$('state').textContent='🟢 Monitoreo activo · cámara autorizada';
+ }catch(e){
+   $('state').textContent='🟠 Monitoreo activo · cámara no disponible';
+   await eventSend('camara_no_disponible','orange',e.message);
+ }
+
+ const sref=ref(db,`sessions/${session}/students/${sid}`);
+ await set(sref,{id:sid,name,level:'green',joinedAt:Date.now(),lastSeen:Date.now()});
+ onDisconnect(sref).update({lastSeen:Date.now(),connected:false});
+ await eventSend('inicio','info','Inicio del monitoreo');
+ hb=setInterval(()=>update(sref,{lastSeen:Date.now(),connected:true}),5000);
+}
+
+async function eventSend(type,level='info',detail=''){
+ if(!active||!student)return;
+ student.level=studentLevel(student.level,level);
+ const ts=Date.now();
+ await update(ref(db,`sessions/${session}/students/${student.id}`),{level:student.level,lastSeen:ts,connected:true});
+ await push(ref(db,`sessions/${session}/events`),{ts,studentId:student.id,studentName:student.name,type,level,detail});
+}
+
+document.addEventListener('visibilitychange',()=>{if(active&&document.hidden) eventSend('cambio_pestana','yellow','La página quedó oculta: cambio de pestaña, ventana o aplicación')});
+</script>
+</body></html>
