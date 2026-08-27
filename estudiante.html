@@ -1,108 +1,39 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Monitor UTEC · Estudiante</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;margin:0}.wrap{max-width:760px;margin:24px auto;padding:0 14px}.head{background:#123f4f;color:#fff;padding:18px;border-radius:12px 12px 0 0}.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:18px;border-radius:0 0 12px 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{border:1px solid #dce6e9;border-radius:10px;padding:14px;background:#fbfdfe}input{width:100%;padding:9px;border:1px solid #cfdde1;border-radius:7px;margin-top:5px}.btn{border:0;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;margin:4px}.teal{background:#15949b;color:#fff}.yellow{background:#fff3cf;color:#7c5e13}.orange{background:#fde8d8;color:#9a4b16}.red{background:#fde3e3;color:#9c3030}.muted{font-size:12px;color:#74868d}video{width:100%;background:#111;border-radius:9px;min-height:180px}.status{padding:10px;border-radius:8px;background:#eef7f7;margin-top:10px}.notice{font-size:12px;line-height:1.45;background:#f2f8f9;border-left:4px solid #15949b;padding:10px;margin-bottom:12px}.detector{margin-top:8px;padding:8px 10px;border-radius:8px;background:#f4f7f8;font-size:12px}.detector.ok{background:#e8f6ee;color:#23653c}.detector.wait{background:#fff7df;color:#775d16}.detector.alert{background:#fde3e3;color:#9c3030}.debug{margin-top:6px;padding:7px 9px;border-radius:7px;background:#f6f8f9;font-size:11px;color:#5e7078;min-height:16px}.sent{margin-top:6px;padding:7px 9px;border-radius:7px;background:#eef7f7;font-size:11px;color:#285e66;min-height:16px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
+body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;margin:0}.wrap{max-width:780px;margin:24px auto;padding:0 14px}.head{background:#123f4f;color:#fff;padding:18px;border-radius:12px 12px 0 0}.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:18px;border-radius:0 0 12px 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{border:1px solid #dce6e9;border-radius:10px;padding:14px;background:#fbfdfe}input{width:100%;padding:9px;border:1px solid #cfdde1;border-radius:7px;margin-top:5px}.btn{border:0;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;margin:4px}.teal{background:#15949b;color:#fff}.muted{font-size:12px;color:#74868d}video{width:100%;background:#111;border-radius:9px;min-height:180px}.status,.detector,.debug,.sent{padding:8px 10px;border-radius:8px;margin-top:7px;font-size:12px}.status{background:#eef7f7}.detector{background:#f4f7f8}.ok{background:#e8f6ee;color:#23653c}.wait{background:#fff7df;color:#775d16}.alert{background:#fde3e3;color:#9c3030}.debug{background:#f6f8f9;color:#5e7078}.sent{background:#eef7f7;color:#285e66}.notice{font-size:12px;line-height:1.45;background:#f2f8f9;border-left:4px solid #15949b;padding:10px;margin-bottom:12px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-</head>
-<body>
-<div class="wrap">
- <div class="head"><div style="font-size:11px;color:#9fd8d7;font-weight:700;letter-spacing:1.2px">UTEC · EVALUACIÓN</div><div style="font-size:24px;font-weight:800">Monitor de sesión</div></div>
- <div class="card">
-  <div class="notice"><b>Información:</b> esta página registra eventos técnicos durante la evaluación. La cámara se analiza localmente en el navegador. El video no se transmite de forma continua al docente. Las detecciones son indicios para revisión humana, no decisiones automáticas.</div>
-  <div class="grid">
-   <div class="box">
-    <label>Nombre completo<input id="name" placeholder="Nombre y apellido"></label><br>
-    <label>ID / cédula<input id="sid" placeholder="Documento"></label><br>
-    <label>Código de sesión<input id="session" value="CALCULO-II-260826"></label>
-    <div style="margin-top:10px"><button class="btn teal" id="startBtn">Iniciar monitoreo</button></div>
-    <div id="state" class="status">Sin iniciar</div>
-   </div>
-   <div class="box">
-    <video id="video" autoplay muted playsinline></video>
-    <div id="phoneDetector" class="detector wait">📱 Detector de teléfono: en espera</div>
-    <div id="debugObjects" class="debug">Objetos reconocidos: —</div>
-    <div id="sendState" class="sent">Firebase: sin alertas enviadas</div>
-    <div class="muted" style="margin-top:6px">La detección de objetos se realiza únicamente en este navegador.</div>
-   </div>
-  </div>
-  <div class="box" style="margin-top:12px">
-   <b>Prueba técnica de otras alertas</b>
-   <div class="muted">Estos botones siguen siendo simulaciones hasta incorporar sus detectores automáticos.</div>
-   <div style="margin-top:8px">
-    <button class="btn yellow" data-t="fuera_de_camara" data-l="yellow" data-d="Rostro no visible durante más de 20 s">Sin rostro</button>
-    <button class="btn red" data-t="multiples_rostros" data-l="red" data-d="Se detectaron 2 rostros">2 rostros</button>
-    <button class="btn yellow" data-t="cambio_pestana" data-l="yellow" data-d="La página perdió visibilidad">Cambio de pestaña</button>
-    <button class="btn orange" data-t="reconexion" data-l="orange" data-d="Reconexión repetida">Reconexión</button>
-   </div>
-  </div>
- </div>
-</div>
+</head><body><div class="wrap">
+<div class="head"><div style="font-size:11px;color:#9fd8d7;font-weight:700;letter-spacing:1.2px">UTEC · EVALUACIÓN</div><div style="font-size:24px;font-weight:800">Monitor de sesión</div></div>
+<div class="card"><div class="notice"><b>Información:</b> la cámara se analiza localmente y no se transmite de forma continua. Los eventos registrados son información para revisión humana; no generan decisiones automáticas.</div>
+<div class="grid"><div class="box"><label>Nombre completo<input id="name" placeholder="Nombre y apellido"></label><br><label>ID / cédula<input id="sid" placeholder="Documento"></label><br><label>Código de sesión<input id="session" value="CALCULO-II-260826"></label><div style="margin-top:10px"><button class="btn teal" id="startBtn">Iniciar monitoreo</button></div><div id="state" class="status">Sin iniciar</div></div>
+<div class="box"><video id="video" autoplay muted playsinline></video><div id="phoneDetector" class="detector wait">📱 Detector de teléfono: en espera</div><div id="tabDetector" class="detector wait">🗂️ Pestaña: en espera</div><div id="netDetector" class="detector wait">🌐 Conexión: en espera</div><div id="debugObjects" class="debug">Objetos reconocidos: —</div><div id="sendState" class="sent">Firebase: sin alertas enviadas</div></div></div>
+</div></div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getDatabase, ref, set, push, update, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getDatabase,ref,set,push,update,onDisconnect,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
-const app=initializeApp(firebaseConfig), db=getDatabase(app);
-let active=false, session='', student=null, hb=null;
-let objectModel=null, detectTimer=null, lastPhoneAlert=0, detectionBusy=false, phoneHits=[];
-const PHONE_MIN_CONFIDENCE=0.30, PHONE_IMMEDIATE_CONFIDENCE=0.50, PHONE_WINDOW_MS=6000, PHONE_REQUIRED_HITS=2, PHONE_ALERT_COOLDOWN_MS=20000, DETECT_EVERY_MS=800;
-const $=id=>document.getElementById(id);
+const app=initializeApp(firebaseConfig),db=getDatabase(app),$=id=>document.getElementById(id);
+let active=false,session='',student=null,hb=null,objectModel=null,detectionBusy=false,phoneHits=[],lastPhoneAlert=0,hiddenAt=null,offlineAt=null;
+const PHONE_MIN_CONFIDENCE=.30,PHONE_IMMEDIATE_CONFIDENCE=.50,PHONE_WINDOW_MS=6000,PHONE_REQUIRED_HITS=2,PHONE_ALERT_COOLDOWN_MS=20000,DETECT_EVERY_MS=800;
 $('startBtn').onclick=start;
-document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>eventSend(b.dataset.t,b.dataset.l,b.dataset.d));
 function clean(x){return x.replace(/[.#$/\[\]]/g,'-').slice(0,80)}
-function studentLevel(current,next){const r={green:0,yellow:1,orange:2,red:3};return (r[next]||0)>(r[current]||0)?next:current}
-function detectorState(text,cls='wait'){const el=$('phoneDetector');el.textContent=text;el.className=`detector ${cls}`}
-function debugObjects(predictions){const top=[...predictions].sort((a,b)=>b.score-a.score).slice(0,5);$('debugObjects').textContent='Objetos reconocidos: '+(top.length?top.map(p=>`${p.class} ${Math.round(p.score*100)}%`).join(' · '):'ninguno')}
-async function start(){
- const name=$('name').value.trim(), sid=clean($('sid').value.trim()), sess=clean($('session').value.trim());
- if(!name||!sid||!sess){alert('Completá nombre, documento y código de sesión.');return}
- student={id:sid,name,level:'green'};session=sess;active=true;$('startBtn').disabled=true;
- try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();$('state').textContent='🟢 Monitoreo activo · cámara autorizada'}catch(e){$('state').textContent='🟠 Monitoreo activo · cámara no disponible';detectorState('📱 Detector de teléfono: cámara no disponible','wait');await eventSend('camara_no_disponible','orange',e.message)}
- const sref=ref(db,`sessions/${session}/students/${sid}`);
- await set(sref,{id:sid,name,level:'green',joinedAt:serverTimestamp(),lastSeen:serverTimestamp(),connected:true});
- onDisconnect(sref).update({lastSeen:serverTimestamp(),connected:false});
- await eventSend('inicio','info','Inicio del monitoreo');
- hb=setInterval(()=>update(sref,{lastSeen:serverTimestamp(),connected:true}),5000);
- if($('video').srcObject) startPhoneDetector();
-}
-async function startPhoneDetector(){
- detectorState('📱 Detector de teléfono: cargando modelo…','wait');
- try{if(!window.cocoSsd) throw new Error('No se pudo cargar COCO-SSD');objectModel=await window.cocoSsd.load({base:'mobilenet_v2'});detectorState('📱 Detector de teléfono: activo','ok');detectTimer=setInterval(detectPhone,DETECT_EVERY_MS)}catch(e){detectorState('📱 Detector de teléfono: no disponible','wait');await eventSend('detector_telefono_error','yellow',e.message||'No se pudo iniciar el detector de teléfono')}
-}
-async function detectPhone(){
- if(!active||!objectModel||detectionBusy||document.hidden)return;
- const video=$('video');if(video.readyState<2)return;detectionBusy=true;
- try{
-   const predictions=await objectModel.detect(video,20,PHONE_MIN_CONFIDENCE);debugObjects(predictions);
-   const now=Date.now(), phones=predictions.filter(p=>p.class==='cell phone'&&p.score>=PHONE_MIN_CONFIDENCE);
-   phoneHits=phoneHits.filter(h=>now-h.ts<=PHONE_WINDOW_MS);
-   if(phones.length){
-     const best=Math.max(...phones.map(p=>p.score));phoneHits.push({ts:now,score:best});
-     detectorState(`📱 Posible teléfono · ${Math.round(best*100)}% · confirmaciones ${phoneHits.length}/${PHONE_REQUIRED_HITS}`,'alert');
-     const confirmed=best>=PHONE_IMMEDIATE_CONFIDENCE || phoneHits.length>=PHONE_REQUIRED_HITS;
-     if(confirmed&&now-lastPhoneAlert>=PHONE_ALERT_COOLDOWN_MS){
-       lastPhoneAlert=now;const maxScore=Math.max(...phoneHits.map(h=>h.score));
-       try{
-         await eventSend('telefono','red',`Posible teléfono detectado (confianza máxima ${Math.round(maxScore*100)}%). Requiere revisión humana.`);
-         $('sendState').textContent='✅ Firebase: alerta enviada al docente a las '+new Date().toLocaleTimeString();
-         detectorState(`📱 ALERTA ENVIADA · posible teléfono (${Math.round(maxScore*100)}%)`,'alert');
-       }catch(e){$('sendState').textContent='❌ Firebase: error al enviar alerta · '+(e.message||e);lastPhoneAlert=0}
-       phoneHits=[];
-     }
-   }else if(phoneHits.length===0){detectorState('📱 Detector de teléfono: activo','ok')}
- }catch(e){$('debugObjects').textContent='Error del detector: '+(e.message||e)}finally{detectionBusy=false}
-}
-async function eventSend(type,level='info',detail=''){
- if(!active||!student)return;
- student.level=studentLevel(student.level,level);
- await update(ref(db,`sessions/${session}/students/${student.id}`),{level:student.level,lastSeen:serverTimestamp(),connected:true});
- await push(ref(db,`sessions/${session}/events`),{ts:serverTimestamp(),studentId:student.id,studentName:student.name,type,level,detail});
-}
-document.addEventListener('visibilitychange',()=>{if(active&&document.hidden) eventSend('cambio_pestana','yellow','La página quedó oculta: cambio de pestaña, ventana o aplicación')});
-</script>
-</body></html>
+function studentLevel(current,next){const r={green:0,yellow:1,orange:2,red:3};return(r[next]||0)>(r[current]||0)?next:current}
+function setDet(id,text,cls='wait'){const e=$(id);e.textContent=text;e.className=`detector ${cls}`}
+function debugObjects(ps){const top=[...ps].sort((a,b)=>b.score-a.score).slice(0,5);$('debugObjects').textContent='Objetos reconocidos: '+(top.length?top.map(p=>`${p.class} ${Math.round(p.score*100)}%`).join(' · '):'ninguno')}
+async function start(){const name=$('name').value.trim(),sid=clean($('sid').value.trim()),sess=clean($('session').value.trim());if(!name||!sid||!sess){alert('Completá nombre, documento y código de sesión.');return}student={id:sid,name,level:'green'};session=sess;active=true;$('startBtn').disabled=true;
+try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();$('state').textContent='🟢 Monitoreo activo · cámara autorizada'}catch(e){$('state').textContent='🟠 Monitoreo activo · cámara no disponible';await eventSend('camara_no_disponible','orange',e.message)}
+const sref=ref(db,`sessions/${session}/students/${sid}`);await set(sref,{id:sid,name,level:'green',joinedAt:serverTimestamp(),lastSeen:serverTimestamp(),connected:true});onDisconnect(sref).update({lastSeen:serverTimestamp(),connected:false});await eventSend('inicio','info','Inicio del monitoreo');hb=setInterval(()=>update(sref,{lastSeen:serverTimestamp(),connected:navigator.onLine}),5000);setDet('tabDetector','🗂️ Pestaña: visible','ok');setDet('netDetector',navigator.onLine?'🌐 Conexión: en línea':'🌐 Conexión: sin red',navigator.onLine?'ok':'alert');if($('video').srcObject)startPhoneDetector()}
+async function startPhoneDetector(){setDet('phoneDetector','📱 Detector de teléfono: cargando modelo…');try{objectModel=await window.cocoSsd.load({base:'mobilenet_v2'});setDet('phoneDetector','📱 Detector de teléfono: activo','ok');setInterval(detectPhone,DETECT_EVERY_MS)}catch(e){setDet('phoneDetector','📱 Detector de teléfono: no disponible','wait');await eventSend('detector_telefono_error','yellow',e.message||'No se pudo iniciar el detector')}}
+async function detectPhone(){if(!active||!objectModel||detectionBusy||document.hidden)return;const video=$('video');if(video.readyState<2)return;detectionBusy=true;try{const ps=await objectModel.detect(video,20,PHONE_MIN_CONFIDENCE);debugObjects(ps);const now=Date.now(),phones=ps.filter(p=>p.class==='cell phone'&&p.score>=PHONE_MIN_CONFIDENCE);phoneHits=phoneHits.filter(h=>now-h.ts<=PHONE_WINDOW_MS);if(phones.length){const best=Math.max(...phones.map(p=>p.score));phoneHits.push({ts:now,score:best});setDet('phoneDetector',`📱 Posible teléfono · ${Math.round(best*100)}% · ${phoneHits.length}/${PHONE_REQUIRED_HITS}`,'alert');if((best>=PHONE_IMMEDIATE_CONFIDENCE||phoneHits.length>=PHONE_REQUIRED_HITS)&&now-lastPhoneAlert>=PHONE_ALERT_COOLDOWN_MS){lastPhoneAlert=now;const mx=Math.max(...phoneHits.map(h=>h.score));await sendChecked('telefono','red',`Posible teléfono detectado (confianza máxima ${Math.round(mx*100)}%). Requiere revisión humana.`);phoneHits=[]}}else if(!phoneHits.length)setDet('phoneDetector','📱 Detector de teléfono: activo','ok')}catch(e){$('debugObjects').textContent='Error del detector: '+(e.message||e)}finally{detectionBusy=false}}
+async function sendChecked(type,lvl,detail){try{await eventSend(type,lvl,detail);$('sendState').textContent='✅ Firebase: '+type+' enviado a las '+new Date().toLocaleTimeString()}catch(e){$('sendState').textContent='❌ Firebase: '+(e.message||e);throw e}}
+async function eventSend(type,lvl='info',detail=''){if(!active||!student)return;student.level=studentLevel(student.level,lvl);await update(ref(db,`sessions/${session}/students/${student.id}`),{level:student.level,lastSeen:serverTimestamp(),connected:navigator.onLine});await push(ref(db,`sessions/${session}/events`),{ts:serverTimestamp(),studentId:student.id,studentName:student.name,type,level:lvl,detail})}
+document.addEventListener('visibilitychange',async()=>{if(!active)return;if(document.hidden){hiddenAt=Date.now();setDet('tabDetector','🗂️ Página oculta · midiendo duración…','wait')}else if(hiddenAt){const ms=Date.now()-hiddenAt,sec=(ms/1000).toFixed(1);hiddenAt=null;if(ms<3000){setDet('tabDetector',`🗂️ Volvió · ${sec} s (registro informativo)`,'ok');await eventSend('cambio_pestana_breve','info',`Página oculta ${sec} s.`)}else{setDet('tabDetector',`🗂️ Fuera de pestaña ${sec} s`,'alert');await sendChecked('cambio_pestana','yellow',`La página estuvo oculta ${sec} s.`)}}});
+window.addEventListener('offline',async()=>{if(!active)return;offlineAt=Date.now();setDet('netDetector','🌐 Conexión: sin red','alert');try{await update(ref(db,`sessions/${session}/students/${student.id}`),{connected:false,lastSeen:serverTimestamp()})}catch(e){}});
+window.addEventListener('online',async()=>{if(!active)return;const sec=offlineAt?((Date.now()-offlineAt)/1000).toFixed(1):'desconocida';offlineAt=null;setDet('netDetector','🌐 Conexión: restablecida','ok');await sendChecked('reconexion','info',`La conexión se restableció. Duración aproximada sin red: ${sec} s.`)});
+</script></body></html>
