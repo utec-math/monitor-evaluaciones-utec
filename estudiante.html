@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Monitor UTEC · Estudiante</title>
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;margin:0}.wrap{max-width:760px;margin:24px auto;padding:0 14px}.head{background:#123f4f;color:#fff;padding:18px;border-radius:12px 12px 0 0}.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:18px;border-radius:0 0 12px 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{border:1px solid #dce6e9;border-radius:10px;padding:14px;background:#fbfdfe}input{width:100%;padding:9px;border:1px solid #cfdde1;border-radius:7px;margin-top:5px}.btn{border:0;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;margin:4px}.teal{background:#15949b;color:#fff}.yellow{background:#fff3cf;color:#7c5e13}.orange{background:#fde8d8;color:#9a4b16}.red{background:#fde3e3;color:#9c3030}.muted{font-size:12px;color:#74868d}video{width:100%;background:#111;border-radius:9px;min-height:180px}.status{padding:10px;border-radius:8px;background:#eef7f7;margin-top:10px}.notice{font-size:12px;line-height:1.45;background:#f2f8f9;border-left:4px solid #15949b;padding:10px;margin-bottom:12px}.detector{margin-top:8px;padding:8px 10px;border-radius:8px;background:#f4f7f8;font-size:12px}.detector.ok{background:#e8f6ee;color:#23653c}.detector.wait{background:#fff7df;color:#775d16}.detector.alert{background:#fde3e3;color:#9c3030}.debug{margin-top:6px;padding:7px 9px;border-radius:7px;background:#f6f8f9;font-size:11px;color:#5e7078;min-height:16px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
+body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;margin:0}.wrap{max-width:760px;margin:24px auto;padding:0 14px}.head{background:#123f4f;color:#fff;padding:18px;border-radius:12px 12px 0 0}.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:18px;border-radius:0 0 12px 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{border:1px solid #dce6e9;border-radius:10px;padding:14px;background:#fbfdfe}input{width:100%;padding:9px;border:1px solid #cfdde1;border-radius:7px;margin-top:5px}.btn{border:0;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer;margin:4px}.teal{background:#15949b;color:#fff}.yellow{background:#fff3cf;color:#7c5e13}.orange{background:#fde8d8;color:#9a4b16}.red{background:#fde3e3;color:#9c3030}.muted{font-size:12px;color:#74868d}video{width:100%;background:#111;border-radius:9px;min-height:180px}.status{padding:10px;border-radius:8px;background:#eef7f7;margin-top:10px}.notice{font-size:12px;line-height:1.45;background:#f2f8f9;border-left:4px solid #15949b;padding:10px;margin-bottom:12px}.detector{margin-top:8px;padding:8px 10px;border-radius:8px;background:#f4f7f8;font-size:12px}.detector.ok{background:#e8f6ee;color:#23653c}.detector.wait{background:#fff7df;color:#775d16}.detector.alert{background:#fde3e3;color:#9c3030}.debug{margin-top:6px;padding:7px 9px;border-radius:7px;background:#f6f8f9;font-size:11px;color:#5e7078;min-height:16px}.sent{margin-top:6px;padding:7px 9px;border-radius:7px;background:#eef7f7;font-size:11px;color:#285e66;min-height:16px}@media(max-width:650px){.grid{grid-template-columns:1fr}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
@@ -27,6 +27,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;mar
     <video id="video" autoplay muted playsinline></video>
     <div id="phoneDetector" class="detector wait">📱 Detector de teléfono: en espera</div>
     <div id="debugObjects" class="debug">Objetos reconocidos: —</div>
+    <div id="sendState" class="sent">Firebase: sin alertas enviadas</div>
     <div class="muted" style="margin-top:6px">La detección de objetos se realiza únicamente en este navegador.</div>
    </div>
   </div>
@@ -42,42 +43,26 @@ body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;mar
   </div>
  </div>
 </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getDatabase, ref, set, push, update, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
-
 const app=initializeApp(firebaseConfig), db=getDatabase(app);
 let active=false, session='', student=null, hb=null;
-let objectModel=null, detectTimer=null, lastPhoneAlert=0, detectionBusy=false;
-let phoneHits=[];
-const PHONE_MIN_CONFIDENCE=0.30;
-const PHONE_WINDOW_MS=6000;
-const PHONE_REQUIRED_HITS=2;
-const PHONE_ALERT_COOLDOWN_MS=20000;
-const DETECT_EVERY_MS=800;
+let objectModel=null, detectTimer=null, lastPhoneAlert=0, detectionBusy=false, phoneHits=[];
+const PHONE_MIN_CONFIDENCE=0.30, PHONE_IMMEDIATE_CONFIDENCE=0.50, PHONE_WINDOW_MS=6000, PHONE_REQUIRED_HITS=2, PHONE_ALERT_COOLDOWN_MS=20000, DETECT_EVERY_MS=800;
 const $=id=>document.getElementById(id);
-
 $('startBtn').onclick=start;
 document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>eventSend(b.dataset.t,b.dataset.l,b.dataset.d));
-
 function clean(x){return x.replace(/[.#$/\[\]]/g,'-').slice(0,80)}
 function studentLevel(current,next){const r={green:0,yellow:1,orange:2,red:3};return (r[next]||0)>(r[current]||0)?next:current}
 function detectorState(text,cls='wait'){const el=$('phoneDetector');el.textContent=text;el.className=`detector ${cls}`}
-function debugObjects(predictions){
- const top=[...predictions].sort((a,b)=>b.score-a.score).slice(0,5);
- $('debugObjects').textContent='Objetos reconocidos: '+(top.length?top.map(p=>`${p.class} ${Math.round(p.score*100)}%`).join(' · '):'ninguno');
-}
-
+function debugObjects(predictions){const top=[...predictions].sort((a,b)=>b.score-a.score).slice(0,5);$('debugObjects').textContent='Objetos reconocidos: '+(top.length?top.map(p=>`${p.class} ${Math.round(p.score*100)}%`).join(' · '):'ninguno')}
 async function start(){
  const name=$('name').value.trim(), sid=clean($('sid').value.trim()), sess=clean($('session').value.trim());
  if(!name||!sid||!sess){alert('Completá nombre, documento y código de sesión.');return}
  student={id:sid,name,level:'green'};session=sess;active=true;$('startBtn').disabled=true;
- try{
-   const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
-   $('video').srcObject=stream;await $('video').play();$('state').textContent='🟢 Monitoreo activo · cámara autorizada';
- }catch(e){$('state').textContent='🟠 Monitoreo activo · cámara no disponible';detectorState('📱 Detector de teléfono: cámara no disponible','wait');await eventSend('camara_no_disponible','orange',e.message)}
+ try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();$('state').textContent='🟢 Monitoreo activo · cámara autorizada'}catch(e){$('state').textContent='🟠 Monitoreo activo · cámara no disponible';detectorState('📱 Detector de teléfono: cámara no disponible','wait');await eventSend('camara_no_disponible','orange',e.message)}
  const sref=ref(db,`sessions/${session}/students/${sid}`);
  await set(sref,{id:sid,name,level:'green',joinedAt:serverTimestamp(),lastSeen:serverTimestamp(),connected:true});
  onDisconnect(sref).update({lastSeen:serverTimestamp(),connected:false});
@@ -85,48 +70,39 @@ async function start(){
  hb=setInterval(()=>update(sref,{lastSeen:serverTimestamp(),connected:true}),5000);
  if($('video').srcObject) startPhoneDetector();
 }
-
 async function startPhoneDetector(){
  detectorState('📱 Detector de teléfono: cargando modelo…','wait');
- try{
-   if(!window.cocoSsd) throw new Error('No se pudo cargar COCO-SSD');
-   objectModel=await window.cocoSsd.load({base:'mobilenet_v2'});
-   detectorState('📱 Detector de teléfono: activo','ok');
-   detectTimer=setInterval(detectPhone,DETECT_EVERY_MS);
- }catch(e){detectorState('📱 Detector de teléfono: no disponible','wait');await eventSend('detector_telefono_error','yellow',e.message||'No se pudo iniciar el detector de teléfono')}
+ try{if(!window.cocoSsd) throw new Error('No se pudo cargar COCO-SSD');objectModel=await window.cocoSsd.load({base:'mobilenet_v2'});detectorState('📱 Detector de teléfono: activo','ok');detectTimer=setInterval(detectPhone,DETECT_EVERY_MS)}catch(e){detectorState('📱 Detector de teléfono: no disponible','wait');await eventSend('detector_telefono_error','yellow',e.message||'No se pudo iniciar el detector de teléfono')}
 }
-
 async function detectPhone(){
  if(!active||!objectModel||detectionBusy||document.hidden)return;
  const video=$('video');if(video.readyState<2)return;detectionBusy=true;
  try{
-   const predictions=await objectModel.detect(video,20,PHONE_MIN_CONFIDENCE);
-   debugObjects(predictions);
-   const now=Date.now();
-   const phones=predictions.filter(p=>p.class==='cell phone'&&p.score>=PHONE_MIN_CONFIDENCE);
+   const predictions=await objectModel.detect(video,20,PHONE_MIN_CONFIDENCE);debugObjects(predictions);
+   const now=Date.now(), phones=predictions.filter(p=>p.class==='cell phone'&&p.score>=PHONE_MIN_CONFIDENCE);
    phoneHits=phoneHits.filter(h=>now-h.ts<=PHONE_WINDOW_MS);
    if(phones.length){
-     const best=Math.max(...phones.map(p=>p.score));
-     phoneHits.push({ts:now,score:best});
+     const best=Math.max(...phones.map(p=>p.score));phoneHits.push({ts:now,score:best});
      detectorState(`📱 Posible teléfono · ${Math.round(best*100)}% · confirmaciones ${phoneHits.length}/${PHONE_REQUIRED_HITS}`,'alert');
-     if(phoneHits.length>=PHONE_REQUIRED_HITS&&now-lastPhoneAlert>=PHONE_ALERT_COOLDOWN_MS){
-       lastPhoneAlert=now;
-       const maxScore=Math.max(...phoneHits.map(h=>h.score));
-       await eventSend('telefono','red',`Posible teléfono detectado en varias imágenes recientes (confianza máxima ${Math.round(maxScore*100)}%). Requiere revisión humana.`);
-       detectorState(`📱 Alerta enviada · posible teléfono (${Math.round(maxScore*100)}%)`,'alert');
+     const confirmed=best>=PHONE_IMMEDIATE_CONFIDENCE || phoneHits.length>=PHONE_REQUIRED_HITS;
+     if(confirmed&&now-lastPhoneAlert>=PHONE_ALERT_COOLDOWN_MS){
+       lastPhoneAlert=now;const maxScore=Math.max(...phoneHits.map(h=>h.score));
+       try{
+         await eventSend('telefono','red',`Posible teléfono detectado (confianza máxima ${Math.round(maxScore*100)}%). Requiere revisión humana.`);
+         $('sendState').textContent='✅ Firebase: alerta enviada al docente a las '+new Date().toLocaleTimeString();
+         detectorState(`📱 ALERTA ENVIADA · posible teléfono (${Math.round(maxScore*100)}%)`,'alert');
+       }catch(e){$('sendState').textContent='❌ Firebase: error al enviar alerta · '+(e.message||e);lastPhoneAlert=0}
        phoneHits=[];
      }
    }else if(phoneHits.length===0){detectorState('📱 Detector de teléfono: activo','ok')}
- }catch(e){$('debugObjects').textContent='Error del detector: '+(e.message||e);console.warn('Error de detección:',e)}finally{detectionBusy=false}
+ }catch(e){$('debugObjects').textContent='Error del detector: '+(e.message||e)}finally{detectionBusy=false}
 }
-
 async function eventSend(type,level='info',detail=''){
  if(!active||!student)return;
  student.level=studentLevel(student.level,level);
  await update(ref(db,`sessions/${session}/students/${student.id}`),{level:student.level,lastSeen:serverTimestamp(),connected:true});
  await push(ref(db,`sessions/${session}/events`),{ts:serverTimestamp(),studentId:student.id,studentName:student.name,type,level,detail});
 }
-
 document.addEventListener('visibilitychange',()=>{if(active&&document.hidden) eventSend('cambio_pestana','yellow','La página quedó oculta: cambio de pestaña, ventana o aplicación')});
 </script>
 </body></html>
