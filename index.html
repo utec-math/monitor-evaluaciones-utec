@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor de Evaluaciones UTEC</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:#18333d;margin:0}
+.wrap{max-width:850px;margin:40px auto;padding:0 16px}
+.head{background:#123f4f;color:#fff;padding:22px;border-radius:14px 14px 0 0}
+.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:22px;border-radius:0 0 14px 14px}
+.k{font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:#9fd8d7}
+h1{margin:4px 0 2px;font-size:28px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+a{display:block;text-decoration:none;border:1px solid #dce6e9;border-radius:11px;padding:18px;background:#fbfdfe;color:#18333d}
+a:hover{border-color:#15949b}
+.btn{margin-top:12px;background:#15949b;color:#fff;padding:10px 12px;border-radius:8px;text-align:center;font-weight:700}
+.small{font-size:12px;color:#74868d;line-height:1.45}
+@media(max-width:650px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="head">
+   <div class="k">UTEC · evaluación híbrida</div>
+   <h1>Monitor de Evaluaciones</h1>
+   <div style="color:#d9e9ed">Asistente de supervisión · la decisión siempre es docente</div>
+ </div>
+ <div class="card">
+   <div class="small">Elegí el acceso correspondiente. Para funcionar por Internet, este sitio debe tener configurado Firebase en <code>firebase-config.js</code>.</div>
+   <div class="grid">
+     <a href="docente.html">
+       <b>Panel docente</b>
+       <div class="small">Ver estudiantes, alertas y registro de eventos en tiempo real.</div>
+       <div class="btn">Ingresar como docente</div>
+     </a>
+     <a href="estudiante.html">
+       <b>Acceso estudiante</b>
+       <div class="small">Iniciar la sesión de monitoreo y habilitar cámara.</div>
+       <div class="btn">Ingresar como estudiante</div>
+     </a>
+   </div>
+ </div>
+</div>
+</body>
+</html>
