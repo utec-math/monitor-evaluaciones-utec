@@ -24,6 +24,8 @@ public sealed class MainForm : Form
     private readonly System.Windows.Forms.Timer syncTimer = new() { Interval = 2500 };
     private readonly HttpClient http = new();
     private readonly ScreenEventRecorder recorder = new();
+    private readonly FirebaseAnonymousAuth firebaseAuth;
+    private readonly DriveClipUploader clipUploader;
 
     private string session = "";
     private string studentId = "";
@@ -39,6 +41,9 @@ public sealed class MainForm : Form
 
     public MainForm(string? initialSession, string? initialStudent = null)
     {
+        firebaseAuth = new FirebaseAnonymousAuth(http);
+        clipUploader = new DriveClipUploader(http, firebaseAuth);
+
         Text = "Monitor Evaluaciones UTEC · Modo examen";
         Width = 1180;
         Height = 760;
@@ -142,12 +147,22 @@ public sealed class MainForm : Form
         {
             var consent = MessageBox.Show(
                 "Durante esta evaluación la aplicación mantiene un búfer temporal de la pantalla y conserva únicamente clips alrededor de eventos relevantes (por ejemplo, cambiar a otra aplicación).\n\n" +
-                "Configuración de esta prueba: 30 s antes + 30 s después, 2 imágenes por segundo, sin audio. Los clips se guardan localmente para revisión humana y ningún evento implica una sanción automática.\n\n" +
+                "Configuración de esta prueba: 30 s antes + 30 s después, 2 imágenes por segundo, sin audio. Los clips se guardan para revisión humana y, cuando el receptor institucional está disponible, se suben automáticamente a Drive. Ningún evento implica una sanción automática.\n\n" +
                 "¿Continuar e iniciar este modo de evaluación?",
                 "Captura de pantalla por eventos",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Information);
             if (consent != DialogResult.OK) return;
+        }
+
+        statusLabel.Text = "Autenticando…";
+        if (!await firebaseAuth.EnsureSignedInAsync())
+        {
+            MessageBox.Show(
+                "No se pudo autenticar esta instalación en Firebase. Verificá que el proveedor Anonymous esté habilitado en Firebase Authentication.",
+                "Monitor UTEC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            statusLabel.Text = "Autenticación no disponible";
+            return;
         }
 
         statusLabel.Text = "Conectando…";
@@ -190,18 +205,33 @@ public sealed class MainForm : Form
 
     private async Task OnClipSavedAsync(ClipResult result)
     {
-        captureLabel.Text = "● Clip guardado · " + Path.GetFileName(result.FilePath);
+        captureLabel.Text = "● Clip local guardado · preparando subida…";
         captureLabel.ForeColor = Color.DarkGreen;
-        var detail = $"Clip local asociado a {result.Reason}: {Path.GetFileName(result.FilePath)}";
-        await SendAppEventAsync("clip_local_guardado", "info", detail);
+        var localDetail = $"Clip local asociado a {result.Reason}: {Path.GetFileName(result.FilePath)}";
+        await SendAppEventAsync("clip_local_guardado", "info", localDetail);
+
+        var uploaded = await clipUploader.UploadAsync(session, studentId, result);
+        if (uploaded.Ok)
+        {
+            captureLabel.Text = "☁ Clip subido a Drive";
+            var detail = $"Clip de pantalla disponible para revisión · {result.Reason}";
+            await SendAppEventAsync("clip_drive_disponible", "info", detail, uploaded.WebViewLink, uploaded.FileId);
+        }
+        else
+        {
+            captureLabel.Text = "● Clip local guardado · Drive pendiente";
+            await SendAppEventAsync("clip_drive_pendiente", "info", uploaded.Error);
+        }
     }
 
-    private async Task SendAppEventAsync(string type, string level, string detail)
+    private async Task SendAppEventAsync(string type, string level, string detail, string clipUrl = "", string clipFileId = "")
     {
         if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
         try
         {
-            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/events.json";
+            await firebaseAuth.EnsureSignedInAsync();
+            var auth = string.IsNullOrWhiteSpace(firebaseAuth.IdToken) ? "" : "?auth=" + Uri.EscapeDataString(firebaseAuth.IdToken);
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/events.json{auth}";
             var payload = new
             {
                 ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -209,7 +239,9 @@ public sealed class MainForm : Form
                 studentName = studentId,
                 type,
                 level,
-                detail
+                detail,
+                clipUrl,
+                clipFileId
             };
             using var _ = await http.PostAsJsonAsync(url, payload);
         }
@@ -222,6 +254,7 @@ public sealed class MainForm : Form
         syncBusy = true;
         try
         {
+            await firebaseAuth.EnsureSignedInAsync();
             await RefreshConfigAsync(false);
             await CheckCommandAsync();
             if (DateTimeOffset.UtcNow - lastHeartbeat >= TimeSpan.FromSeconds(5))
@@ -266,7 +299,8 @@ public sealed class MainForm : Form
     {
         try
         {
-            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/commands/{Uri.EscapeDataString(studentId)}.json";
+            if (!await firebaseAuth.EnsureSignedInAsync()) return;
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/commands/{Uri.EscapeDataString(studentId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
             using var response = await http.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var json = await response.Content.ReadAsStringAsync();
@@ -330,12 +364,14 @@ public sealed class MainForm : Form
         if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
         try
         {
-            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/clients/{Uri.EscapeDataString(studentId)}.json";
+            if (!await firebaseAuth.EnsureSignedInAsync()) return;
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/clients/{Uri.EscapeDataString(studentId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
             var payload = new
             {
                 id = studentId,
+                uid = firebaseAuth.LocalId,
                 app = "windows-webview2",
-                version = "0.4",
+                version = "0.5",
                 lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 connected,
                 state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
