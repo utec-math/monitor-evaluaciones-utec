@@ -1,0 +1,22 @@
+# Credenciales y secretos reales
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+client_secret*.json
+service-account*.json
+service_account*.json
+credentials*.json
+
+# Archivos locales / IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Build .NET
+bin/
+obj/
+artifacts/
