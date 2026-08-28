@@ -10,19 +10,25 @@ public sealed class MainForm : Form
     private const string FirebaseBase = "https://preciencia1-default-rtdb.firebaseio.com";
     private const string DefaultHome = "https://utec-math.github.io/monitor-evaluaciones-utec/";
 
-    private readonly TextBox sessionBox = new() { Width = 190 };
+    private readonly TextBox sessionBox = new() { Width = 180 };
+    private readonly TextBox studentBox = new() { Width = 150 };
     private readonly Button connectButton = new() { Text = "Conectar", AutoSize = true };
     private readonly Button homeButton = new() { Text = "Inicio", AutoSize = true };
-    private readonly Label statusLabel = new() { AutoSize = true, Text = "Sin conectar" };
+    private readonly Label statusLabel = new() { AutoSize = true, Text = "Sin conectar", Padding = new Padding(8, 7, 0, 0) };
     private readonly WebView2 browser = new() { Dock = DockStyle.Fill };
-    private readonly System.Windows.Forms.Timer configTimer = new() { Interval = 3000 };
+    private readonly System.Windows.Forms.Timer syncTimer = new() { Interval = 2500 };
     private readonly HttpClient http = new();
 
     private string session = "";
+    private string studentId = "";
     private SessionConfig config = new();
-    private bool internalNavigation;
+    private string lastCommandId = "";
+    private DateTimeOffset? unlockedUntil;
+    private DateTimeOffset lastHeartbeat = DateTimeOffset.MinValue;
+    private bool finished;
+    private bool syncBusy;
 
-    public MainForm(string? initialSession)
+    public MainForm(string? initialSession, string? initialStudent = null)
     {
         Text = "Monitor Evaluaciones UTEC · Modo examen";
         Width = 1180;
@@ -30,18 +36,22 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
 
         if (!string.IsNullOrWhiteSpace(initialSession))
-            sessionBox.Text = CleanSession(initialSession);
+            sessionBox.Text = CleanKey(initialSession, 60);
+        if (!string.IsNullOrWhiteSpace(initialStudent))
+            studentBox.Text = CleanKey(initialStudent, 80);
 
         var top = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 48,
+            Height = 50,
             Padding = new Padding(10, 8, 10, 6),
             WrapContents = false,
             AutoSize = false
         };
         top.Controls.Add(new Label { Text = "Sesión:", AutoSize = true, Padding = new Padding(0, 7, 3, 0) });
         top.Controls.Add(sessionBox);
+        top.Controls.Add(new Label { Text = "ID / cédula:", AutoSize = true, Padding = new Padding(8, 7, 3, 0) });
+        top.Controls.Add(studentBox);
         top.Controls.Add(connectButton);
         top.Controls.Add(homeButton);
         top.Controls.Add(statusLabel);
@@ -51,17 +61,21 @@ public sealed class MainForm : Form
 
         connectButton.Click += async (_, _) => await ConnectAsync();
         homeButton.Click += (_, _) => NavigateHome();
-        configTimer.Tick += async (_, _) => await RefreshConfigAsync(false);
-        FormClosing += (_, _) => configTimer.Stop();
+        syncTimer.Tick += async (_, _) => await SyncAsync();
+        FormClosing += (_, _) =>
+        {
+            syncTimer.Stop();
+            _ = SendPresenceAsync(false);
+        };
 
         Shown += async (_, _) =>
         {
             await browser.EnsureCoreWebView2Async();
             ConfigureBrowser();
-            if (!string.IsNullOrWhiteSpace(sessionBox.Text))
+            if (!string.IsNullOrWhiteSpace(sessionBox.Text) && !string.IsNullOrWhiteSpace(studentBox.Text))
                 await ConnectAsync();
             else
-                ShowMessage("Ingresá el código de sesión y presioná Conectar.");
+                ShowMessage("Ingresá el código de sesión y tu documento/ID, y presioná Conectar.");
         };
     }
 
@@ -73,9 +87,8 @@ public sealed class MainForm : Form
 
         browser.CoreWebView2.NavigationStarting += (_, e) =>
         {
-            if (internalNavigation) return;
+            if (string.Equals(e.Uri, "about:blank", StringComparison.OrdinalIgnoreCase)) return;
             if (IsAllowed(e.Uri)) return;
-
             e.Cancel = true;
             ShowBlocked(e.Uri);
         };
@@ -92,20 +105,47 @@ public sealed class MainForm : Form
 
     private async Task ConnectAsync()
     {
-        session = CleanSession(sessionBox.Text);
+        session = CleanKey(sessionBox.Text, 60);
+        studentId = CleanKey(studentBox.Text, 80);
         sessionBox.Text = session;
-        if (string.IsNullOrWhiteSpace(session))
+        studentBox.Text = studentId;
+
+        if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId))
         {
-            MessageBox.Show("Ingresá un código de sesión.", "Monitor UTEC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Ingresá el código de sesión y tu documento/ID.", "Monitor UTEC",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         statusLabel.Text = "Conectando…";
+        lastCommandId = "";
+        finished = false;
+        unlockedUntil = null;
+
         if (await RefreshConfigAsync(true))
         {
-            configTimer.Start();
-            statusLabel.Text = $"Conectado · {session}";
+            await SendPresenceAsync(true);
+            syncTimer.Start();
+            UpdateStatus();
             NavigateHome();
+        }
+    }
+
+    private async Task SyncAsync()
+    {
+        if (syncBusy || string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
+        syncBusy = true;
+        try
+        {
+            await RefreshConfigAsync(false);
+            await CheckCommandAsync();
+            if (DateTimeOffset.UtcNow - lastHeartbeat >= TimeSpan.FromSeconds(5))
+                await SendPresenceAsync(true);
+            UpdateStatus();
+        }
+        finally
+        {
+            syncBusy = false;
         }
     }
 
@@ -119,14 +159,12 @@ public sealed class MainForm : Form
             using var response = await http.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var json = await response.Content.ReadAsStringAsync();
-            var loaded = JsonSerializer.Deserialize<SessionConfig>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            }) ?? new SessionConfig();
-
+            var loaded = JsonSerializer.Deserialize<SessionConfig>(json, JsonOptions()) ?? new SessionConfig();
             loaded.Normalize();
             config = loaded;
-            statusLabel.Text = $"Conectado · {session} · {config.AllowedSites.Count} recurso(s) extra";
+
+            if (!IsUnlocked && !finished && browser.Source is Uri current && current.Scheme is "http" or "https" && !IsAllowed(current.ToString()))
+                ShowBlocked(current.ToString());
             return true;
         }
         catch (Exception ex)
@@ -139,22 +177,127 @@ public sealed class MainForm : Form
         }
     }
 
-    private void NavigateHome()
+    private async Task CheckCommandAsync()
     {
-        var target = string.IsNullOrWhiteSpace(config.HomeUrl) ? DefaultHome : config.HomeUrl;
-        NavigateInternal(target);
+        try
+        {
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/commands/{Uri.EscapeDataString(studentId)}.json";
+            using var response = await http.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsStringAsync();
+            var command = JsonSerializer.Deserialize<RemoteCommand>(json, JsonOptions());
+            if (command is null || string.IsNullOrWhiteSpace(command.Id) || command.Id == lastCommandId) return;
+
+            lastCommandId = command.Id;
+            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (command.ExpiresAt > 0 && command.ExpiresAt < nowMs) return;
+            await ExecuteCommandAsync(command);
+        }
+        catch
+        {
+            // La configuración sigue funcionando aunque falle momentáneamente la lectura de comandos.
+        }
     }
 
-    private void NavigateInternal(string url)
+    private async Task ExecuteCommandAsync(RemoteCommand command)
     {
-        if (browser.CoreWebView2 is null) return;
-        internalNavigation = true;
-        try { browser.CoreWebView2.Navigate(url); }
-        finally { internalNavigation = false; }
+        switch ((command.Action ?? "").Trim().ToLowerInvariant())
+        {
+            case "home":
+                finished = false;
+                NavigateHome();
+                break;
+            case "reload":
+                if (!finished && browser.CoreWebView2 is not null)
+                    browser.Reload();
+                break;
+            case "recover":
+                finished = false;
+                unlockedUntil = null;
+                await RefreshConfigAsync(false);
+                NavigateHome();
+                break;
+            case "unlock":
+                finished = false;
+                var seconds = Math.Clamp(command.DurationSec <= 0 ? 120 : command.DurationSec, 15, 1800);
+                unlockedUntil = DateTimeOffset.UtcNow.AddSeconds(seconds);
+                MessageBox.Show($"El docente habilitó navegación libre durante {Math.Ceiling(seconds / 60.0):0.#} min.",
+                    "Monitor UTEC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                break;
+            case "lock":
+                unlockedUntil = null;
+                if (browser.Source is Uri current && current.Scheme is "http" or "https" && !IsAllowed(current.ToString()))
+                    NavigateHome();
+                break;
+            case "finish":
+                finished = true;
+                unlockedUntil = null;
+                ShowMessage("<h2>Evaluación finalizada</h2><p>El docente finalizó esta sesión en la aplicación de examen.</p><p>Mantené esta ventana abierta hasta recibir indicaciones.</p>", true);
+                break;
+        }
+
+        await SendPresenceAsync(true);
+        UpdateStatus();
+    }
+
+    private async Task SendPresenceAsync(bool connected)
+    {
+        if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
+        try
+        {
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/clients/{Uri.EscapeDataString(studentId)}.json";
+            var payload = new
+            {
+                id = studentId,
+                app = "windows-webview2",
+                version = "0.2",
+                lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                connected,
+                state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
+                currentUrl = browser.Source?.ToString() ?? ""
+            };
+            using var response = await http.PutAsJsonAsync(url, payload);
+            if (response.IsSuccessStatusCode)
+                lastHeartbeat = DateTimeOffset.UtcNow;
+        }
+        catch
+        {
+            // El heartbeat se reintentará en el siguiente ciclo.
+        }
+    }
+
+    private bool IsUnlocked => unlockedUntil.HasValue && unlockedUntil.Value > DateTimeOffset.UtcNow;
+
+    private void UpdateStatus()
+    {
+        if (string.IsNullOrWhiteSpace(session))
+        {
+            statusLabel.Text = "Sin conectar";
+            return;
+        }
+        if (finished)
+            statusLabel.Text = $"Finalizada · {session}";
+        else if (IsUnlocked)
+        {
+            var left = unlockedUntil!.Value - DateTimeOffset.UtcNow;
+            statusLabel.Text = $"🔓 Desbloqueado · {Math.Max(1, Math.Ceiling(left.TotalSeconds))} s";
+        }
+        else
+            statusLabel.Text = $"🔒 Conectado · {session} · {config.AllowedSites.Count} recurso(s) extra";
+    }
+
+    private void NavigateHome()
+    {
+        if (finished) return;
+        var target = string.IsNullOrWhiteSpace(config.HomeUrl) ? DefaultHome : config.HomeUrl;
+        if (browser.CoreWebView2 is not null)
+            browser.CoreWebView2.Navigate(target);
     }
 
     private bool IsAllowed(string? raw)
     {
+        if (finished) return false;
+        if (IsUnlocked) return Uri.TryCreate(raw, UriKind.Absolute, out var free) && free.Scheme is "http" or "https";
         if (!Uri.TryCreate(raw, UriKind.Absolute, out var target)) return false;
         if (target.Scheme is not ("http" or "https")) return false;
 
@@ -214,15 +357,15 @@ main{{max-width:720px;margin:auto;background:white;border:1px solid #dce6e9;bord
 code{{word-break:break-all;background:#f3f6f7;padding:4px 6px;border-radius:5px}}
 </style><main>{body}</main></html>
 """;
-        internalNavigation = true;
-        try { browser.NavigateToString(page); }
-        finally { internalNavigation = false; }
+        browser.NavigateToString(page);
     }
 
-    private static string CleanSession(string? value)
+    private static JsonSerializerOptions JsonOptions() => new() { PropertyNameCaseInsensitive = true };
+
+    private static string CleanKey(string? value, int max)
     {
         if (string.IsNullOrWhiteSpace(value)) return "";
-        return new string(value.Trim().Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').Take(60).ToArray());
+        return new string(value.Trim().Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').Take(max).ToArray());
     }
 }
 
@@ -250,4 +393,13 @@ public sealed class AllowedSite
 {
     public string Url { get; set; } = "";
     public string Scope { get; set; } = "exact";
+}
+
+public sealed class RemoteCommand
+{
+    public string Id { get; set; } = "";
+    public string Action { get; set; } = "";
+    public long IssuedAt { get; set; }
+    public long ExpiresAt { get; set; }
+    public int DurationSec { get; set; }
 }
