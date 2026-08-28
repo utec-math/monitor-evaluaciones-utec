@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor UTEC · Configurar prueba Moodle</title>
+<style>
+:root{--ink:#17333d;--deep:#123f4f;--teal:#15949b;--line:#dce6e9;--bg:#edf3f5;--ok:#23653c;--bad:#a12f2f}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--deep);color:#fff;padding:18px 24px}.kicker{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:#9fd8d7;font-weight:700}.title{font-size:24px;font-weight:800;margin-top:3px}
+main{max-width:760px;margin:24px auto;padding:0 14px}.card{background:#fff;border:1px solid #cfdee3;border-radius:14px;padding:20px;margin-bottom:14px}h2{margin:0 0 6px}.muted{font-size:12px;color:#74868d;line-height:1.45}label{display:block;font-size:12px;font-weight:700;margin-top:14px}input{width:100%;font:inherit;padding:10px;border:1px solid #cfdde1;border-radius:8px;margin-top:5px}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.btn{border:0;border-radius:8px;padding:10px 13px;font-weight:700;cursor:pointer}.primary{background:var(--teal);color:#fff}.ghost{background:#eef5f6;color:var(--deep)}.status{font-size:12px;font-weight:700;margin-top:12px;min-height:18px}.ok{color:var(--ok)}.bad{color:var(--bad)}code{background:#f2f6f7;border-radius:5px;padding:2px 5px;word-break:break-all}.summary{background:#f7fafb;border:1px solid #e2eaed;border-radius:10px;padding:12px;margin-top:14px;font-size:12px;line-height:1.5}.hidden{display:none}
+</style>
+</head>
+<body>
+<header><div class="kicker">UTEC · Monitor de Evaluaciones</div><div class="title">🎓 Configurar prueba Moodle</div></header>
+<main>
+<div id="loginCard" class="card"><h2>Acceso docente</h2><div class="muted">Usá el mismo usuario docente del Monitor de Evaluaciones.</div><form id="loginForm"><label>Correo electrónico<input id="email" type="email" autocomplete="username" required></label><label>Contraseña<input id="password" type="password" autocomplete="current-password" required></label><div class="row"><button class="btn primary" type="submit">Ingresar</button></div><div id="loginStatus" class="status bad"></div></form></div>
+<div id="configCard" class="card hidden"><h2>Restringir una sesión a Moodle</h2><div class="muted">Pegá la URL del cuestionario. La app abrirá esa prueba y sólo permitirá navegación dentro del módulo <code>/mod/quiz/</code> de ese mismo Moodle. Otros dominios y otras zonas de Moodle quedarán bloqueados por la app de examen.</div>
+<label>Código de sesión<input id="session" placeholder="Ej.: CALCULO-II-260826"></label>
+<label>URL de la prueba Moodle<input id="moodleUrl" type="url" placeholder="https://moodle.../mod/quiz/view.php?id=123"></label>
+<div class="row"><button class="btn primary" id="applyBtn">🎓 Configurar prueba Moodle</button><button class="btn ghost" id="logoutBtn">Cerrar sesión</button></div>
+<div id="result" class="status"></div><div id="summary" class="summary hidden"></div></div>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getDatabase,ref,set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+const app=initializeApp(firebaseConfig),db=getDatabase(app),auth=getAuth(app),$=id=>document.getElementById(id);
+function safeSession(x){return String(x||'').trim().replace(/[^A-Za-z0-9_-]/g,'-').slice(0,60)}
+function parseMoodle(raw){
+  try{
+    const u=new URL(String(raw||'').trim());
+    if(!['http:','https:'].includes(u.protocol))return null;
+    const marker='/mod/quiz/';
+    if(!u.pathname.includes(marker))return null;
+    u.hash='';
+    const quizBase=new URL(marker,u.origin).href;
+    return{homeUrl:u.href,quizBase,host:u.host};
+  }catch(e){return null}
+}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginStatus').textContent='';try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(err){$('loginStatus').textContent='No se pudo iniciar sesión. Verificá correo y contraseña.'}});
+onAuthStateChanged(auth,user=>{if(user){$('loginCard').classList.add('hidden');$('configCard').classList.remove('hidden')}else{$('configCard').classList.add('hidden');$('loginCard').classList.remove('hidden')}});
+$('logoutBtn').onclick=()=>signOut(auth);
+$('applyBtn').onclick=async()=>{
+  const session=safeSession($('session').value),m=parseMoodle($('moodleUrl').value);
+  $('result').className='status';$('summary').classList.add('hidden');
+  if(!session){$('result').className='status bad';$('result').textContent='Ingresá un código de sesión.';return}
+  if(!m){$('result').className='status bad';$('result').textContent='La URL debe ser una página de cuestionario Moodle que contenga /mod/quiz/.';return}
+  const config={homeUrl:m.homeUrl,allowedSites:[{url:m.quizBase,scope:'path'}]};
+  $('result').textContent='Guardando configuración…';
+  try{
+    await set(ref(db,`sessions/${session}/config`),config);
+    $('session').value=session;
+    $('result').className='status ok';$('result').textContent='✓ Modo Moodle configurado para '+session;
+    $('summary').innerHTML='<b>Página inicial:</b><br><code>'+esc(m.homeUrl)+'</code><br><br><b>Navegación permitida:</b><br><code>'+esc(m.quizBase)+'</code> y sus páginas internas.<br><br><b>Bloqueado:</b> otros dominios y otras rutas de Moodle.';
+    $('summary').classList.remove('hidden');
+  }catch(err){$('result').className='status bad';$('result').textContent='Error al guardar: '+err.message}
+};
+function esc(x){return String(x||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+</script>
+</body></html>
