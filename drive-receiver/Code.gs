@@ -1,0 +1,86 @@
+const FOLDER_ID = 'PEGAR_ID_CARPETA_DRIVE';
+const FIREBASE_API_KEY = 'AIzaSyD2vgqvLLwcJYPc0gca2pC_ud0q31sxkXY';
+const FIREBASE_DB = 'https://preciencia1-default-rtdb.firebaseio.com';
+
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData && e.postData.contents || '{}');
+    const idToken = String(body.idToken || '');
+    const session = cleanKey(body.session, 60);
+    const studentId = cleanKey(body.studentId, 80);
+    const fileName = cleanFileName(body.fileName || 'clip.avi');
+    const contentType = String(body.contentType || 'video/x-msvideo');
+    const data = String(body.dataBase64 || '');
+    const triggeredAt = Number(body.triggeredAt || Date.now());
+    const reason = String(body.reason || 'evento').slice(0, 250);
+    const detail = String(body.detail || '').slice(0, 1000);
+
+    if (!idToken || !session || !studentId || !data) return json({ok:false,error:'Solicitud incompleta'}, 400);
+    if (data.length > 45 * 1024 * 1024) return json({ok:false,error:'Clip demasiado grande para este receptor'}, 413);
+
+    const user = verifyFirebaseToken(idToken);
+    if (!user || !user.localId) return json({ok:false,error:'Token Firebase inválido'}, 401);
+
+    const client = readClient(session, studentId, idToken);
+    if (!client || client.uid !== user.localId || client.id !== studentId) {
+      return json({ok:false,error:'La app no está registrada para esta sesión/estudiante'}, 403);
+    }
+
+    const root = DriveApp.getFolderById(FOLDER_ID);
+    const sessionFolder = getOrCreateFolder(root, session);
+    const studentFolder = getOrCreateFolder(sessionFolder, studentId);
+    const bytes = Utilities.base64Decode(data);
+    const blob = Utilities.newBlob(bytes, contentType, fileName);
+    const file = studentFolder.createFile(blob);
+    file.setDescription('Monitor Evaluaciones UTEC\nEvento: ' + reason + '\nDetalle: ' + detail + '\nHora: ' + new Date(triggeredAt).toISOString());
+
+    const result = {
+      ok: true,
+      fileId: file.getId(),
+      fileName: file.getName(),
+      webViewLink: 'https://drive.google.com/file/d/' + file.getId() + '/view',
+      triggeredAt: triggeredAt
+    };
+    return json(result, 200);
+  } catch (err) {
+    return json({ok:false,error:String(err && err.message || err)}, 500);
+  }
+}
+
+function verifyFirebaseToken(idToken) {
+  const url = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + encodeURIComponent(FIREBASE_API_KEY);
+  const res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({idToken:idToken}),
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) return null;
+  const obj = JSON.parse(res.getContentText() || '{}');
+  return obj.users && obj.users[0] || null;
+}
+
+function readClient(session, studentId, idToken) {
+  const url = FIREBASE_DB + '/sessions/' + encodeURIComponent(session) + '/clients/' + encodeURIComponent(studentId) + '.json?auth=' + encodeURIComponent(idToken);
+  const res = UrlFetchApp.fetch(url, {muteHttpExceptions:true});
+  if (res.getResponseCode() !== 200) return null;
+  return JSON.parse(res.getContentText() || 'null');
+}
+
+function getOrCreateFolder(parent, name) {
+  const it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+function cleanKey(value, max) {
+  return String(value || '').replace(/[^A-Za-z0-9_-]/g, '-').slice(0, max);
+}
+
+function cleanFileName(value) {
+  return String(value || 'clip.avi').replace(/[\\/:*?\"<>|]/g, '_').slice(0, 120);
+}
+
+function json(obj, status) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
