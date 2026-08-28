@@ -4,6 +4,10 @@
       "$session": {
         ".read": "auth != null",
         ".write": "auth != null",
+        "config": {
+          ".read": true,
+          ".write": "auth != null"
+        },
         "students": {
           "$studentId": {
             ".write": "auth != null || (newData.hasChildren(['id','name','level','lastSeen','connected']) && newData.child('id').val() === $studentId)"
