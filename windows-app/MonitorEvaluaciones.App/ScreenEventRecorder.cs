@@ -1,4 +1,5 @@
 using System.Drawing.Imaging;
+using System.Text.Json;
 using OpenCvSharp;
 
 namespace MonitorEvaluaciones.App;
@@ -171,9 +172,7 @@ public sealed class ScreenEventRecorder : IAsyncDisposable
                 using var mat = Cv2.ImDecode(sample.Jpeg, ImreadModes.Color);
                 if (mat.Empty()) continue;
                 if (mat.Size() == targetSize)
-                {
                     writer.Write(mat);
-                }
                 else
                 {
                     using var resized = new Mat();
