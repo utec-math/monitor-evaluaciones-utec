@@ -9,6 +9,7 @@ public sealed class MainForm : Form
 {
     private const string FirebaseBase = "https://preciencia1-default-rtdb.firebaseio.com";
     private const string DefaultHome = "https://utec-math.github.io/monitor-evaluaciones-utec/";
+    private const string StudentPage = "https://utec-math.github.io/monitor-evaluaciones-utec/estudiante.html";
 
     private readonly TextBox sessionBox = new() { Width = 180 };
     private readonly TextBox studentBox = new() { Width = 150 };
@@ -249,7 +250,7 @@ public sealed class MainForm : Form
             {
                 id = studentId,
                 app = "windows-webview2",
-                version = "0.2",
+                version = "0.3",
                 lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 connected,
                 state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
@@ -284,10 +285,21 @@ public sealed class MainForm : Form
             statusLabel.Text = $"🔒 Conectado · {session} · {config.AllowedSites.Count} recurso(s) extra";
     }
 
+    private string EffectiveHome()
+    {
+        var configured = string.IsNullOrWhiteSpace(config.HomeUrl) ? DefaultHome : config.HomeUrl;
+        if (Uri.TryCreate(configured, UriKind.Absolute, out var c) &&
+            Uri.TryCreate(DefaultHome, UriKind.Absolute, out var d) && UrisEquivalent(c, d))
+        {
+            return $"{StudentPage}?session={Uri.EscapeDataString(session)}&sid={Uri.EscapeDataString(studentId)}";
+        }
+        return configured;
+    }
+
     private void NavigateHome()
     {
         if (finished) return;
-        var target = string.IsNullOrWhiteSpace(config.HomeUrl) ? DefaultHome : config.HomeUrl;
+        var target = EffectiveHome();
         if (browser.CoreWebView2 is not null)
             browser.CoreWebView2.Navigate(target);
     }
@@ -299,7 +311,7 @@ public sealed class MainForm : Form
         if (!Uri.TryCreate(raw, UriKind.Absolute, out var target)) return false;
         if (target.Scheme is not ("http" or "https")) return false;
 
-        if (MatchesExactOrConfiguredHome(target, config.HomeUrl)) return true;
+        if (Uri.TryCreate(EffectiveHome(), UriKind.Absolute, out var h) && UrisEquivalent(target, h)) return true;
 
         foreach (var site in config.AllowedSites)
         {
@@ -323,12 +335,6 @@ public sealed class MainForm : Form
         }
 
         return false;
-    }
-
-    private static bool MatchesExactOrConfiguredHome(Uri target, string? home)
-    {
-        var effective = string.IsNullOrWhiteSpace(home) ? DefaultHome : home;
-        return Uri.TryCreate(effective, UriKind.Absolute, out var h) && UrisEquivalent(target, h);
     }
 
     private static bool UrisEquivalent(Uri a, Uri b)
