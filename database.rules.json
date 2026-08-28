@@ -8,6 +8,18 @@
           ".read": true,
           ".write": "auth != null"
         },
+        "commands": {
+          "$studentId": {
+            ".read": true,
+            ".write": "auth != null"
+          }
+        },
+        "clients": {
+          "$studentId": {
+            ".read": "auth != null",
+            ".write": "auth != null || (newData.hasChildren(['id','lastSeen','app']) && newData.child('id').val() === $studentId)"
+          }
+        },
         "students": {
           "$studentId": {
             ".write": "auth != null || (newData.hasChildren(['id','name','level','lastSeen','connected']) && newData.child('id').val() === $studentId)"
