@@ -26,7 +26,7 @@ let active=false,session='',student=null,hb=null,objectModel=null,detectionBusy=
 let cameraTrack=null,cameraMuteAt=null,cameraMuteTimer=null,cameraProblemOpen=false;
 const DEFAULT_HOME='https://utec-math.github.io/monitor-evaluaciones-utec/';
 const PHONE_MIN_CONFIDENCE=.30,PHONE_IMMEDIATE_CONFIDENCE=.50,PHONE_WINDOW_MS=6000,PHONE_REQUIRED_HITS=2,PHONE_ALERT_COOLDOWN_MS=20000,DETECT_EVERY_MS=800,CAMERA_MUTE_GRACE_MS=5000;
-const urlSession=new URLSearchParams(location.search).get('session');if(urlSession){$('session').value=urlSession;$('session').readOnly=true;$('session').title='Código recibido desde el enlace del docente';subscribeConfig(clean(urlSession))}
+const params=new URLSearchParams(location.search),urlSession=params.get('session'),urlSid=params.get('sid');if(urlSession){$('session').value=urlSession;$('session').readOnly=true;$('session').title='Código recibido desde el enlace del docente';subscribeConfig(clean(urlSession))}if(urlSid){$('sid').value=clean(urlSid);$('sid').readOnly=true;$('sid').title='ID recibido desde la aplicación de examen'}
 $('startBtn').onclick=start;
 $('session').addEventListener('change',()=>{if(!$('session').readOnly)subscribeConfig(clean($('session').value.trim()))});
 function clean(x){return String(x||'').replace(/[.#$/\[\]]/g,'-').slice(0,80)}
