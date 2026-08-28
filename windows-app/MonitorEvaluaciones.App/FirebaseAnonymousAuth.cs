@@ -1,83 +1,109 @@
-using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Web.WebView2.WinForms;
 
 namespace MonitorEvaluaciones.App;
 
 public sealed class FirebaseAnonymousAuth
 {
-    private const string ApiKey = "AIzaSyD2vgqvLLwcJYPc0gca2pC_ud0q31sxkXY";
-    private readonly HttpClient http;
-    private string refreshToken = "";
+    private const string BridgeUrl = "https://utec-math.github.io/monitor-evaluaciones-utec/auth-bridge.html";
+
+    private readonly WebView2 bridge = new() { Dock = DockStyle.Fill };
+    private Form? host;
+    private bool initialized;
+    private TaskCompletionSource<bool>? pending;
     private DateTimeOffset expiresAt = DateTimeOffset.MinValue;
 
     public string IdToken { get; private set; } = "";
     public string LocalId { get; private set; } = "";
 
-    public FirebaseAnonymousAuth(HttpClient httpClient) => http = httpClient;
+    public FirebaseAnonymousAuth(HttpClient _)
+    {
+    }
 
     public async Task<bool> EnsureSignedInAsync()
     {
-        if (!string.IsNullOrWhiteSpace(IdToken) && DateTimeOffset.UtcNow < expiresAt.AddMinutes(-5)) return true;
-        if (!string.IsNullOrWhiteSpace(refreshToken))
+        if (!string.IsNullOrWhiteSpace(IdToken) && DateTimeOffset.UtcNow < expiresAt.AddMinutes(-3))
+            return true;
+
+        try
         {
-            if (await RefreshAsync()) return true;
+            await EnsureBridgeAsync();
+            pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            bridge.CoreWebView2.Navigate(BridgeUrl + "?t=" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+
+            var completed = await Task.WhenAny(pending.Task, Task.Delay(TimeSpan.FromSeconds(20)));
+            if (completed != pending.Task)
+                return false;
+            return await pending.Task;
         }
-        return await SignInAsync();
-    }
-
-    private async Task<bool> SignInAsync()
-    {
-        var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={ApiKey}";
-        using var response = await http.PostAsJsonAsync(url, new { returnSecureToken = true });
-        if (!response.IsSuccessStatusCode) return false;
-        var json = await response.Content.ReadAsStringAsync();
-        var obj = JsonSerializer.Deserialize<AuthResponse>(json, JsonOptions());
-        if (obj is null || string.IsNullOrWhiteSpace(obj.IdToken) || string.IsNullOrWhiteSpace(obj.LocalId)) return false;
-        Apply(obj.IdToken, obj.LocalId, obj.RefreshToken, obj.ExpiresIn);
-        return true;
-    }
-
-    private async Task<bool> RefreshAsync()
-    {
-        var url = $"https://securetoken.googleapis.com/v1/token?key={ApiKey}";
-        using var content = new FormUrlEncodedContent(new Dictionary<string,string>
+        catch
         {
-            ["grant_type"] = "refresh_token",
-            ["refresh_token"] = refreshToken
-        });
-        using var response = await http.PostAsync(url, content);
-        if (!response.IsSuccessStatusCode) return false;
-        var json = await response.Content.ReadAsStringAsync();
-        var obj = JsonSerializer.Deserialize<RefreshResponse>(json, JsonOptions());
-        if (obj is null || string.IsNullOrWhiteSpace(obj.IdToken) || string.IsNullOrWhiteSpace(obj.UserId)) return false;
-        Apply(obj.IdToken, obj.UserId, obj.RefreshToken, obj.ExpiresIn);
-        return true;
+            return false;
+        }
     }
 
-    private void Apply(string token, string localId, string refresh, string expires)
+    private async Task EnsureBridgeAsync()
     {
-        IdToken = token;
-        LocalId = localId;
-        refreshToken = refresh;
-        _ = int.TryParse(expires, out var seconds);
-        expiresAt = DateTimeOffset.UtcNow.AddSeconds(seconds > 0 ? seconds : 3600);
+        if (initialized) return;
+
+        host = new Form
+        {
+            Width = 2,
+            Height = 2,
+            ShowInTaskbar = false,
+            FormBorderStyle = FormBorderStyle.None,
+            StartPosition = FormStartPosition.Manual,
+            Location = new Point(-32000, -32000),
+            Opacity = 0
+        };
+        host.Controls.Add(bridge);
+        host.Show();
+
+        await bridge.EnsureCoreWebView2Async();
+        bridge.CoreWebView2.Settings.AreDevToolsEnabled = false;
+        bridge.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+        bridge.CoreWebView2.WebMessageReceived += (_, e) => ReceiveMessage(e.WebMessageAsJson);
+        initialized = true;
     }
 
-    private static JsonSerializerOptions JsonOptions() => new() { PropertyNameCaseInsensitive = true };
-
-    private sealed class AuthResponse
+    private void ReceiveMessage(string json)
     {
+        try
+        {
+            var msg = JsonSerializer.Deserialize<AuthBridgeMessage>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            if (msg is null || !string.Equals(msg.Type, "firebase-auth", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (msg.Ok && !string.IsNullOrWhiteSpace(msg.IdToken) && !string.IsNullOrWhiteSpace(msg.LocalId))
+            {
+                IdToken = msg.IdToken;
+                LocalId = msg.LocalId;
+                expiresAt = msg.ExpiresAt > 0
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(msg.ExpiresAt)
+                    : DateTimeOffset.UtcNow.AddMinutes(50);
+                pending?.TrySetResult(true);
+            }
+            else
+            {
+                pending?.TrySetResult(false);
+            }
+        }
+        catch
+        {
+            pending?.TrySetResult(false);
+        }
+    }
+
+    private sealed class AuthBridgeMessage
+    {
+        public string Type { get; set; } = "";
+        public bool Ok { get; set; }
         public string IdToken { get; set; } = "";
         public string LocalId { get; set; } = "";
-        public string RefreshToken { get; set; } = "";
-        public string ExpiresIn { get; set; } = "3600";
-    }
-
-    private sealed class RefreshResponse
-    {
-        public string IdToken { get; set; } = "";
-        public string UserId { get; set; } = "";
-        public string RefreshToken { get; set; } = "";
-        public string ExpiresIn { get; set; } = "3600";
+        public long ExpiresAt { get; set; }
+        public string Error { get; set; } = "";
     }
 }
