@@ -5,6 +5,7 @@ namespace MonitorEvaluaciones.App;
 
 public sealed class DriveClipUploader
 {
+    private const string EndpointConfigUrl = "https://raw.githubusercontent.com/utec-math/monitor-evaluaciones-utec/main/drive-receiver/endpoint.txt";
     private readonly HttpClient http;
     private readonly FirebaseAnonymousAuth auth;
 
@@ -14,10 +15,11 @@ public sealed class DriveClipUploader
         auth = firebaseAuth;
     }
 
-    public async Task<ClipUploadResult> UploadAsync(string receiverUrl, string session, string studentId, ClipResult clip)
+    public async Task<ClipUploadResult> UploadAsync(string session, string studentId, ClipResult clip)
     {
+        var receiverUrl = await ResolveReceiverUrlAsync();
         if (string.IsNullOrWhiteSpace(receiverUrl))
-            return new ClipUploadResult(false, "", "", "No hay receptor de Drive configurado.");
+            return new ClipUploadResult(false, "", "", "El receptor de Drive todavía no está desplegado.");
         if (!Uri.TryCreate(receiverUrl, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("https" or "http"))
             return new ClipUploadResult(false, "", "", "La URL del receptor no es válida.");
         if (!File.Exists(clip.FilePath))
@@ -49,6 +51,17 @@ public sealed class DriveClipUploader
             return new ClipUploadResult(false, result?.FileId ?? "", result?.WebViewLink ?? "", result?.Error ?? "El receptor no devolvió un enlace de Drive.");
 
         return new ClipUploadResult(true, result.FileId ?? "", result.WebViewLink, "");
+    }
+
+    private async Task<string> ResolveReceiverUrlAsync()
+    {
+        try
+        {
+            var text = (await http.GetStringAsync(EndpointConfigUrl)).Trim();
+            return text.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || text.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                ? text : "";
+        }
+        catch { return ""; }
     }
 
     private static string Short(string text)
