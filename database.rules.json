@@ -2,8 +2,18 @@
   "rules": {
     "sessions": {
       "$session": {
-        ".read": true,
-        ".write": true
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "students": {
+          "$studentId": {
+            ".write": "auth != null || (newData.hasChildren(['id','name','level','lastSeen','connected']) && newData.child('id').val() === $studentId)"
+          }
+        },
+        "events": {
+          "$eventId": {
+            ".write": "auth != null || (!data.exists() && newData.hasChildren(['studentId','studentName','type','level']))"
+          }
+        }
       }
     }
   }
