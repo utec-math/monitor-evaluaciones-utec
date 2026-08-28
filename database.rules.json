@@ -2,32 +2,32 @@
   "rules": {
     "sessions": {
       "$session": {
-        ".read": "auth != null",
-        ".write": "auth != null",
+        ".read": "auth != null && auth.token.email != null",
+        ".write": "auth != null && auth.token.email != null",
         "config": {
           ".read": true,
-          ".write": "auth != null"
+          ".write": "auth != null && auth.token.email != null"
         },
         "commands": {
           "$studentId": {
-            ".read": true,
-            ".write": "auth != null"
+            ".read": "auth != null && (auth.token.email != null || root.child('sessions').child($session).child('clients').child($studentId).child('uid').val() === auth.uid)",
+            ".write": "auth != null && auth.token.email != null"
           }
         },
         "clients": {
           "$studentId": {
-            ".read": "auth != null",
-            ".write": "auth != null || (newData.hasChildren(['id','lastSeen','app']) && newData.child('id').val() === $studentId)"
+            ".read": "auth != null && (auth.token.email != null || data.child('uid').val() === auth.uid)",
+            ".write": "auth != null && (auth.token.email != null || (newData.hasChildren(['id','uid','lastSeen','app']) && newData.child('id').val() === $studentId && newData.child('uid').val() === auth.uid))"
           }
         },
         "students": {
           "$studentId": {
-            ".write": "auth != null || (newData.hasChildren(['id','name','level','lastSeen','connected']) && newData.child('id').val() === $studentId)"
+            ".write": "auth != null && auth.token.email != null || (newData.hasChildren(['id','name','level','lastSeen','connected']) && newData.child('id').val() === $studentId)"
           }
         },
         "events": {
           "$eventId": {
-            ".write": "auth != null || (!data.exists() && newData.hasChildren(['studentId','studentName','type','level']))"
+            ".write": "auth != null && auth.token.email != null || (!data.exists() && newData.hasChildren(['studentId','studentName','type','level']))"
           }
         }
       }
