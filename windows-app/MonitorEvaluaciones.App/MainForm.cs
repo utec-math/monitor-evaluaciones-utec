@@ -195,7 +195,6 @@ public sealed class MainForm : Form
         }
         catch
         {
-            // La configuración sigue funcionando aunque falle momentáneamente la lectura de comandos.
         }
     }
 
@@ -262,7 +261,6 @@ public sealed class MainForm : Form
         }
         catch
         {
-            // El heartbeat se reintentará en el siguiente ciclo.
         }
     }
 
@@ -350,13 +348,11 @@ public sealed class MainForm : Form
     {
         if (browser.CoreWebView2 is null) return;
         var body = html ? message : $"<p>{System.Net.WebUtility.HtmlEncode(message)}</p>";
-        var page = $"""
-<!doctype html><html lang="es"><meta charset="utf-8"><style>
-body{{font-family:Segoe UI,Arial,sans-serif;background:#eef3f5;color:#17333d;padding:48px}}
-main{{max-width:720px;margin:auto;background:white;border:1px solid #dce6e9;border-radius:14px;padding:28px}}
-code{{word-break:break-all;background:#f3f6f7;padding:4px 6px;border-radius:5px}}
-</style><main>{body}</main></html>
-""";
+        var page = "<!doctype html><html lang=\"es\"><meta charset=\"utf-8\"><style>" +
+                   "body{font-family:Segoe UI,Arial,sans-serif;background:#eef3f5;color:#17333d;padding:48px}" +
+                   "main{max-width:720px;margin:auto;background:white;border:1px solid #dce6e9;border-radius:14px;padding:28px}" +
+                   "code{word-break:break-all;background:#f3f6f7;padding:4px 6px;border-radius:5px}" +
+                   "</style><main>" + body + "</main></html>";
         browser.NavigateToString(page);
     }
 
