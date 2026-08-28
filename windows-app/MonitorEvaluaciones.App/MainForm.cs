@@ -1,4 +1,7 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -16,9 +19,11 @@ public sealed class MainForm : Form
     private readonly Button connectButton = new() { Text = "Conectar", AutoSize = true };
     private readonly Button homeButton = new() { Text = "Inicio", AutoSize = true };
     private readonly Label statusLabel = new() { AutoSize = true, Text = "Sin conectar", Padding = new Padding(8, 7, 0, 0) };
+    private readonly Label captureLabel = new() { AutoSize = true, Text = "○ Captura por eventos: inactiva", Padding = new Padding(8, 7, 0, 0), ForeColor = Color.DimGray };
     private readonly WebView2 browser = new() { Dock = DockStyle.Fill };
     private readonly System.Windows.Forms.Timer syncTimer = new() { Interval = 2500 };
     private readonly HttpClient http = new();
+    private readonly ScreenEventRecorder recorder = new();
 
     private string session = "";
     private string studentId = "";
@@ -26,8 +31,11 @@ public sealed class MainForm : Form
     private string lastCommandId = "";
     private DateTimeOffset? unlockedUntil;
     private DateTimeOffset lastHeartbeat = DateTimeOffset.MinValue;
+    private DateTimeOffset lastFocusEvent = DateTimeOffset.MinValue;
     private bool finished;
     private bool syncBusy;
+    private bool connectedOnce;
+    private bool closing;
 
     public MainForm(string? initialSession, string? initialStudent = null)
     {
@@ -56,17 +64,29 @@ public sealed class MainForm : Form
         top.Controls.Add(connectButton);
         top.Controls.Add(homeButton);
         top.Controls.Add(statusLabel);
+        top.Controls.Add(captureLabel);
 
         Controls.Add(browser);
         Controls.Add(top);
 
+        recorder.ClipSaved += result => BeginInvoke(async () => await OnClipSavedAsync(result));
+        recorder.RecorderError += error => BeginInvoke(() => captureLabel.Text = "⚠ Captura: " + error);
+
         connectButton.Click += async (_, _) => await ConnectAsync();
         homeButton.Click += (_, _) => NavigateHome();
         syncTimer.Tick += async (_, _) => await SyncAsync();
-        FormClosing += (_, _) =>
+        Deactivate += async (_, _) => await OnAppDeactivatedAsync();
+
+        FormClosing += async (_, e) =>
         {
+            if (closing) return;
+            e.Cancel = true;
+            closing = true;
             syncTimer.Stop();
-            _ = SendPresenceAsync(false);
+            await SendPresenceAsync(false);
+            await recorder.StopAsync();
+            e.Cancel = false;
+            Close();
         };
 
         Shown += async (_, _) =>
@@ -118,6 +138,18 @@ public sealed class MainForm : Form
             return;
         }
 
+        if (!connectedOnce)
+        {
+            var consent = MessageBox.Show(
+                "Durante esta evaluación la aplicación mantiene un búfer temporal de la pantalla y conserva únicamente clips alrededor de eventos relevantes (por ejemplo, cambiar a otra aplicación).\n\n" +
+                "Configuración de esta prueba: 30 s antes + 30 s después, 2 imágenes por segundo, sin audio. Los clips se guardan localmente para revisión humana y ningún evento implica una sanción automática.\n\n" +
+                "¿Continuar e iniciar este modo de evaluación?",
+                "Captura de pantalla por eventos",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Information);
+            if (consent != DialogResult.OK) return;
+        }
+
         statusLabel.Text = "Conectando…";
         lastCommandId = "";
         finished = false;
@@ -125,11 +157,63 @@ public sealed class MainForm : Form
 
         if (await RefreshConfigAsync(true))
         {
+            recorder.Start(session, studentId);
+            connectedOnce = true;
+            captureLabel.Text = "● Captura por eventos: activa · sin audio";
+            captureLabel.ForeColor = Color.DarkGreen;
             await SendPresenceAsync(true);
             syncTimer.Start();
             UpdateStatus();
             NavigateHome();
         }
+    }
+
+    private async Task OnAppDeactivatedAsync()
+    {
+        if (!connectedOnce || finished || closing || !recorder.IsRunning) return;
+        if (DateTimeOffset.Now - lastFocusEvent < TimeSpan.FromSeconds(8)) return;
+
+        await Task.Delay(180);
+        if (ContainsFocus) return;
+
+        var foreground = GetForegroundDescription();
+        if (foreground.ProcessId == Environment.ProcessId) return;
+
+        lastFocusEvent = DateTimeOffset.Now;
+        var detail = string.IsNullOrWhiteSpace(foreground.Title)
+            ? $"La app de examen perdió el foco. Aplicación al frente: {foreground.ProcessName}."
+            : $"La app de examen perdió el foco. Aplicación al frente: {foreground.ProcessName} · {foreground.Title}.";
+
+        recorder.Trigger("cambio_aplicacion", detail);
+        await SendAppEventAsync("cambio_aplicacion", "yellow", detail);
+    }
+
+    private async Task OnClipSavedAsync(ClipResult result)
+    {
+        captureLabel.Text = "● Clip guardado · " + Path.GetFileName(result.FilePath);
+        captureLabel.ForeColor = Color.DarkGreen;
+        var detail = $"Clip local asociado a {result.Reason}: {Path.GetFileName(result.FilePath)}";
+        await SendAppEventAsync("clip_local_guardado", "info", detail);
+    }
+
+    private async Task SendAppEventAsync(string type, string level, string detail)
+    {
+        if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
+        try
+        {
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/events.json";
+            var payload = new
+            {
+                ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                studentId,
+                studentName = studentId,
+                type,
+                level,
+                detail
+            };
+            using var _ = await http.PostAsJsonAsync(url, payload);
+        }
+        catch { }
     }
 
     private async Task SyncAsync()
@@ -194,9 +278,7 @@ public sealed class MainForm : Form
             if (command.ExpiresAt > 0 && command.ExpiresAt < nowMs) return;
             await ExecuteCommandAsync(command);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private async Task ExecuteCommandAsync(RemoteCommand command)
@@ -232,6 +314,9 @@ public sealed class MainForm : Form
             case "finish":
                 finished = true;
                 unlockedUntil = null;
+                await recorder.StopAsync();
+                captureLabel.Text = "○ Captura por eventos: finalizada";
+                captureLabel.ForeColor = Color.DimGray;
                 ShowMessage("<h2>Evaluación finalizada</h2><p>El docente finalizó esta sesión en la aplicación de examen.</p><p>Mantené esta ventana abierta hasta recibir indicaciones.</p>", true);
                 break;
         }
@@ -250,19 +335,18 @@ public sealed class MainForm : Form
             {
                 id = studentId,
                 app = "windows-webview2",
-                version = "0.3",
+                version = "0.4",
                 lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 connected,
                 state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
-                currentUrl = browser.Source?.ToString() ?? ""
+                currentUrl = browser.Source?.ToString() ?? "",
+                eventCapture = recorder.IsRunning
             };
             using var response = await http.PutAsJsonAsync(url, payload);
             if (response.IsSuccessStatusCode)
                 lastHeartbeat = DateTimeOffset.UtcNow;
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private bool IsUnlocked => unlockedUntil.HasValue && unlockedUntil.Value > DateTimeOffset.UtcNow;
@@ -316,7 +400,6 @@ public sealed class MainForm : Form
         foreach (var site in config.AllowedSites)
         {
             if (!Uri.TryCreate(site.Url, UriKind.Absolute, out var allowed)) continue;
-
             if (site.Scope == "domain")
             {
                 if (string.Equals(target.Host, allowed.Host, StringComparison.OrdinalIgnoreCase)) return true;
@@ -328,12 +411,8 @@ public sealed class MainForm : Form
                 var targetPath = target.AbsolutePath.TrimEnd('/') + "/";
                 if (targetPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase)) return true;
             }
-            else if (UrisEquivalent(target, allowed))
-            {
-                return true;
-            }
+            else if (UrisEquivalent(target, allowed)) return true;
         }
-
         return false;
     }
 
@@ -362,6 +441,22 @@ public sealed class MainForm : Form
         browser.NavigateToString(page);
     }
 
+    private static ForegroundInfo GetForegroundDescription()
+    {
+        try
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return new ForegroundInfo(0, "desconocida", "");
+            GetWindowThreadProcessId(hwnd, out var pid);
+            var titleBuilder = new StringBuilder(512);
+            _ = GetWindowText(hwnd, titleBuilder, titleBuilder.Capacity);
+            var name = "desconocida";
+            try { name = Process.GetProcessById((int)pid).ProcessName; } catch { }
+            return new ForegroundInfo((int)pid, name, titleBuilder.ToString().Trim());
+        }
+        catch { return new ForegroundInfo(0, "desconocida", ""); }
+    }
+
     private static JsonSerializerOptions JsonOptions() => new() { PropertyNameCaseInsensitive = true };
 
     private static string CleanKey(string? value, int max)
@@ -369,6 +464,17 @@ public sealed class MainForm : Form
         if (string.IsNullOrWhiteSpace(value)) return "";
         return new string(value.Trim().Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').Take(max).ToArray());
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+
+    private sealed record ForegroundInfo(int ProcessId, string ProcessName, string Title);
 }
 
 public sealed class SessionConfig
