@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Autenticación Monitor UTEC</title>
+</head>
+<body>
+  <p>Autenticando la aplicación de evaluación…</p>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+    import { firebaseConfig } from "./firebase-config.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    async function send(message) {
+      if (window.chrome?.webview) {
+        window.chrome.webview.postMessage(message);
+      } else {
+        document.body.textContent = message.ok ? "Autenticación preparada." : "No se pudo autenticar.";
+      }
+    }
+
+    try {
+      let user = auth.currentUser;
+      if (!user) {
+        const credential = await signInAnonymously(auth);
+        user = credential.user;
+      }
+      const idToken = await user.getIdToken(true);
+      await send({
+        type: "firebase-auth",
+        ok: true,
+        idToken,
+        localId: user.uid,
+        expiresAt: Date.now() + 50 * 60 * 1000
+      });
+    } catch (error) {
+      await send({
+        type: "firebase-auth",
+        ok: false,
+        error: String(error?.message || error)
+      });
+    }
+  </script>
+</body>
+</html>
