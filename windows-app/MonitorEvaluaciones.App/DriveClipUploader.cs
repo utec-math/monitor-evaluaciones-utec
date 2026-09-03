@@ -31,6 +31,7 @@ public sealed class DriveClipUploader
         var payload = new
         {
             idToken = auth.IdToken,
+            clientUid = auth.LocalId,
             session,
             studentId,
             fileName = Path.GetFileName(clip.FilePath),

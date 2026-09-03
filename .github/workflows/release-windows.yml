@@ -4,13 +4,19 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "windows-app/**"
+      - ".github/workflows/release-windows.yml"
 
 permissions:
   contents: write
 
 jobs:
   build:
-    if: contains(github.event.head_commit.message, '[release-windows]')
+    if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[release-windows]')
     runs-on: windows-latest
 
     steps:
@@ -42,6 +48,7 @@ jobs:
           path: MonitorEvaluacionesUTEC-win-x64-*.zip
 
       - name: Crear descarga pública
+        if: github.event_name == 'push'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

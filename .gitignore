@@ -20,3 +20,8 @@ credentials*.json
 bin/
 obj/
 artifacts/
+
+# Pruebas locales de Firebase / Node
+node_modules/
+firebase-debug.log
+database-debug.log

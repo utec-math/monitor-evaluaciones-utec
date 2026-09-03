@@ -1,35 +1,81 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
     "sessions": {
       "$session": {
-        ".read": "auth != null && auth.token.email != null",
-        ".write": "auth != null && auth.token.email != null",
+        ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "config": {
-          ".read": true,
-          ".write": "auth != null && auth.token.email != null"
+          ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('sessions').child($session).child('clients').child(auth.uid).child('uid').val() === auth.uid)",
+          ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+          ".validate": "newData.hasChildren(['homeUrl','active'])",
+          "homeUrl": { ".validate": "newData.isString() && newData.val().length <= 2048" },
+          "active": { ".validate": "newData.isBoolean()" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "allowedSites": {},
+          "$other": { ".validate": false }
         },
         "commands": {
-          "$studentId": {
-            ".read": "auth != null && (auth.token.email != null || root.child('sessions').child($session).child('clients').child($studentId).child('uid').val() === auth.uid)",
-            ".write": "auth != null && auth.token.email != null"
+          "$uid": {
+            ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.uid === $uid)",
+            ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+            ".validate": "newData.hasChildren(['id','action','issuedAt','expiresAt','durationSec'])",
+            "id": { ".validate": "newData.isString() && newData.val().length <= 80" },
+            "action": { ".validate": "newData.isString() && (newData.val() === 'home' || newData.val() === 'reload' || newData.val() === 'recover' || newData.val() === 'unlock' || newData.val() === 'lock' || newData.val() === 'finish')" },
+            "issuedAt": { ".validate": "newData.isNumber()" },
+            "expiresAt": { ".validate": "newData.isNumber()" },
+            "durationSec": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1800" },
+            "$other": { ".validate": false }
           }
         },
         "clients": {
-          "$studentId": {
-            ".read": "auth != null && (auth.token.email != null || data.child('uid').val() === auth.uid)",
-            ".write": "auth != null && (auth.token.email != null || (newData.hasChildren(['id','uid','lastSeen','app']) && newData.child('id').val() === $studentId && newData.child('uid').val() === auth.uid))"
-          }
-        },
-        "students": {
-          "$studentId": {
-            ".write": "auth != null && auth.token.email != null || (newData.hasChildren(['id','name','level','lastSeen','connected']) && newData.child('id').val() === $studentId)"
+          "$uid": {
+            ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.uid === $uid)",
+            ".write": "auth != null && auth.uid === $uid && newData.child('uid').val() === auth.uid && (!data.exists() || data.child('uid').val() === auth.uid) && root.child('sessions').child($session).child('config').child('active').val() === true",
+            ".validate": "newData.hasChildren(['id','uid','name','lastSeen','connected','app','version','state','currentUrl','eventCapture'])",
+            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80 && (!data.exists() || data.val() === newData.val())" },
+            "uid": { ".validate": "newData.isString() && newData.val() === $uid && (!data.exists() || data.val() === newData.val())" },
+            "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160" },
+            "lastSeen": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+            "connected": { ".validate": "newData.isBoolean()" },
+            "app": { ".validate": "newData.val() === 'windows-webview2'" },
+            "version": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "state": { ".validate": "newData.val() === 'locked' || newData.val() === 'unlocked' || newData.val() === 'finished'" },
+            "currentUrl": { ".validate": "newData.isString() && newData.val().length <= 2048" },
+            "eventCapture": { ".validate": "newData.isBoolean()" },
+            "$other": { ".validate": false }
           }
         },
         "events": {
           "$eventId": {
-            ".write": "auth != null && auth.token.email != null || (!data.exists() && newData.hasChildren(['studentId','studentName','type','level']))"
+            ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+            ".write": "auth != null && !data.exists() && root.child('sessions').child($session).child('config').child('active').val() === true && newData.child('studentUid').val() === auth.uid && root.child('sessions').child($session).child('clients').child(auth.uid).child('uid').val() === auth.uid && root.child('sessions').child($session).child('clients').child(auth.uid).child('id').val() === newData.child('studentId').val()",
+            ".validate": "newData.hasChildren(['ts','studentUid','studentId','studentName','type','level','detail','clipUrl','clipFileId'])",
+            "ts": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+            "studentUid": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160" },
+            "studentId": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+            "studentName": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160" },
+            "type": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+            "level": { ".validate": "newData.val() === 'info' || newData.val() === 'green' || newData.val() === 'yellow' || newData.val() === 'orange' || newData.val() === 'red'" },
+            "detail": { ".validate": "newData.isString() && newData.val().length <= 2000" },
+            "clipUrl": { ".validate": "newData.isString() && newData.val().length <= 2048" },
+            "clipFileId": { ".validate": "newData.isString() && newData.val().length <= 256" },
+            "$other": { ".validate": false }
           }
-        }
+        },
+        "students": {
+          ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+          ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+        },
+        "$other": { ".validate": false }
       }
     }
   }

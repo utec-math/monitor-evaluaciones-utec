@@ -1,10 +1,10 @@
-const FOLDER_ID = '1VWSjVD1EAPJ5_pAjXQMlb23VniJjBLl6';
 const FIREBASE_DB = 'https://preciencia1-default-rtdb.firebaseio.com';
 
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData && e.postData.contents || '{}');
     const idToken = String(body.idToken || '');
+    const clientUid = cleanKey(body.clientUid, 160);
     const session = cleanKey(body.session, 60);
     const studentId = cleanKey(body.studentId, 80);
     const fileName = cleanFileName(body.fileName || 'clip.avi');
@@ -14,17 +14,27 @@ function doPost(e) {
     const reason = String(body.reason || 'evento').slice(0, 250);
     const detail = String(body.detail || '').slice(0, 1000);
 
-    if (!idToken || !session || !studentId || !data) return json({ok:false,error:'Solicitud incompleta'});
+    if (!idToken || !clientUid || !session || !studentId || !data) return json({ok:false,error:'Solicitud incompleta'});
     if (data.length > 45 * 1024 * 1024) return json({ok:false,error:'Clip demasiado grande para este receptor'});
 
     // Esta lectura es también la validación del token: las reglas de Realtime Database
     // sólo permiten que una app anónima lea su propio registro de cliente.
-    const client = readClient(session, studentId, idToken);
-    if (!client || client.id !== studentId) {
+    const client = readClient(session, clientUid, idToken);
+    if (!client || client.uid !== clientUid || client.id !== studentId) {
       return json({ok:false,error:'La app no está registrada para esta sesión/estudiante'});
     }
+    if (client.app !== 'windows-webview2' || String(client.version || '') !== '0.9') {
+      return json({ok:false,error:'Versión de la aplicación no autorizada'});
+    }
+    if (Date.now() - Number(client.lastSeen || 0) > 120000) {
+      return json({ok:false,error:'La conexión de la aplicación no está activa'});
+    }
+    const config = readConfig(session, idToken);
+    if (!config || config.active !== true) return json({ok:false,error:'La sesión está cerrada'});
 
-    const root = DriveApp.getFolderById(FOLDER_ID);
+    const folderId = PropertiesService.getScriptProperties().getProperty('FOLDER_ID');
+    if (!folderId) return json({ok:false,error:'El receptor no tiene configurada la carpeta de destino'});
+    const root = DriveApp.getFolderById(folderId);
     const sessionFolder = getOrCreateFolder(root, session);
     const studentFolder = getOrCreateFolder(sessionFolder, studentId);
     const bytes = Utilities.base64Decode(data);
@@ -44,8 +54,15 @@ function doPost(e) {
   }
 }
 
-function readClient(session, studentId, idToken) {
-  const url = FIREBASE_DB + '/sessions/' + encodeURIComponent(session) + '/clients/' + encodeURIComponent(studentId) + '.json?auth=' + encodeURIComponent(idToken);
+function readClient(session, clientUid, idToken) {
+  const url = FIREBASE_DB + '/sessions/' + encodeURIComponent(session) + '/clients/' + encodeURIComponent(clientUid) + '.json?auth=' + encodeURIComponent(idToken);
+  const res = UrlFetchApp.fetch(url, {muteHttpExceptions:true});
+  if (res.getResponseCode() !== 200) return null;
+  return JSON.parse(res.getContentText() || 'null');
+}
+
+function readConfig(session, idToken) {
+  const url = FIREBASE_DB + '/sessions/' + encodeURIComponent(session) + '/config.json?auth=' + encodeURIComponent(idToken);
   const res = UrlFetchApp.fetch(url, {muteHttpExceptions:true});
   if (res.getResponseCode() !== 200) return null;
   return JSON.parse(res.getContentText() || 'null');
