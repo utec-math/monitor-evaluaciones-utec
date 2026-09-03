@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor UTEC · Estudiante v0.8</title>
+<style>
+:root{--deep:#123f4f;--teal:#15949b;--ink:#18333d;--line:#d7e3e7;--muted:#6f838b;--ok:#177245;--ok-bg:#e7f6ed;--warn:#8a6513;--warn-bg:#fff5d8;--bad:#9a3434;--bad-bg:#fde8e8}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:var(--ink)}
+.shell{width:min(620px,calc(100% - 28px));margin:24px auto}
+.head{background:var(--deep);color:#fff;padding:20px 22px;border-radius:14px 14px 0 0}
+.kicker{font-size:12px;color:#9fd8d7;font-weight:700;letter-spacing:1.2px}
+.title{font-size:25px;font-weight:800;margin-top:4px}
+.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:24px;border-radius:0 0 14px 14px;box-shadow:0 10px 28px rgba(18,63,79,.08)}
+.session{background:#eef7f7;border:1px solid #cfe4e5;padding:11px 14px;border-radius:10px;margin-bottom:18px}
+.session span{display:block;font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.08em}
+.session b{display:block;margin-top:3px;font-size:19px;color:var(--deep)}
+.field{margin:14px 0}
+.field label{display:block;font-size:14px;font-weight:700;margin-bottom:6px}
+.field input{width:100%;padding:13px 12px;border:1px solid #c9d9de;border-radius:9px;font-size:16px;color:var(--ink);background:#fff}
+.field input:focus{outline:3px solid rgba(21,148,155,.16);border-color:var(--teal)}
+.btn{width:100%;border:0;border-radius:10px;padding:14px;font-size:17px;font-weight:800;cursor:pointer;background:var(--teal);color:#fff;margin-top:8px}
+.btn:disabled{opacity:.6;cursor:wait}
+.entry-state{padding:11px 12px;border-radius:9px;background:#eef5f6;margin-top:12px;font-size:14px}
+.hidden{display:none!important}
+.connected{text-align:center;padding:10px 0 2px}
+.status-mark{width:82px;height:82px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:var(--ok-bg);color:var(--ok);font-size:42px;font-weight:800}
+.status-title{margin:0;color:var(--ok);font-size:30px;letter-spacing:.04em}
+.status-detail{margin:7px 0 22px;color:var(--muted);font-size:15px}
+.identity{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left;margin:0 auto 18px}
+.identity-item{padding:12px 13px;border:1px solid var(--line);border-radius:9px;background:#fbfdfe;min-width:0}
+.identity-item.wide{grid-column:1/-1}
+.identity-label{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.identity-value{margin-top:4px;font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.instruction{padding:12px 14px;border-radius:9px;background:#f3f7f8;color:#536970;font-size:14px;line-height:1.45}
+.is-waiting .status-mark{background:var(--warn-bg);color:var(--warn);font-size:31px}
+.is-waiting .status-title{color:var(--warn)}
+.is-offline .status-mark{background:var(--bad-bg);color:var(--bad);font-size:34px}
+.is-offline .status-title{color:var(--bad)}
+@media(max-width:520px){.shell{width:min(100% - 20px,620px);margin:10px auto}.head{padding:17px 18px}.card{padding:19px}.identity{grid-template-columns:1fr}.identity-item.wide{grid-column:auto}.status-title{font-size:26px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="head">
+    <div class="kicker">UTEC · EVALUACIÓN</div>
+    <div class="title">Monitor de evaluación</div>
+  </header>
+
+  <div class="card">
+    <section id="entry">
+      <div class="session">
+        <span>SESIÓN</span>
+        <b id="sessionLabel">—</b>
+      </div>
+
+      <div class="field">
+        <label for="name">Nombre y apellido</label>
+        <input id="name" autocomplete="name" placeholder="Ej.: Ana Pérez">
+      </div>
+
+      <div class="field">
+        <label for="sid">Documento / cédula</label>
+        <input id="sid" inputmode="numeric" autocomplete="off" placeholder="Sin puntos ni guiones">
+      </div>
+
+      <div id="manualSession" class="field hidden">
+        <label for="session">Código de sesión</label>
+        <input id="session" autocomplete="off" placeholder="EVAL-XXXXXX">
+      </div>
+
+      <button id="startBtn" class="btn">Conectarme</button>
+      <div id="entryState" class="entry-state">Completá tus datos para ingresar.</div>
+    </section>
+
+    <section id="connected" class="connected hidden" aria-live="polite">
+      <div id="connectionPanel">
+        <div id="statusMark" class="status-mark">✓</div>
+        <h1 id="statusTitle" class="status-title">CONECTADO</h1>
+        <p id="statusDetail" class="status-detail">La conexión con el sistema está activa.</p>
+      </div>
+
+      <div class="identity">
+        <div class="identity-item wide">
+          <div class="identity-label">Estudiante</div>
+          <div id="who" class="identity-value"></div>
+        </div>
+        <div class="identity-item">
+          <div class="identity-label">Documento</div>
+          <div id="documentActive" class="identity-value"></div>
+        </div>
+        <div class="identity-item">
+          <div class="identity-label">Sesión</div>
+          <div id="sessionActive" class="identity-value"></div>
+        </div>
+      </div>
+
+      <div class="instruction">Mantené abierta la aplicación durante toda la evaluación.</div>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getDatabase,ref,set,push,update,onDisconnect,serverTimestamp,onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app=initializeApp(firebaseConfig),db=getDatabase(app),$=id=>document.getElementById(id);
+let active=false,session='',student=null,hb=null,hiddenAt=null,offlineAt=null,serverOnline=false;
+const params=new URLSearchParams(location.search),urlSession=clean(params.get('session')),urlSid=clean(params.get('sid')),urlName=String(params.get('name')||'').trim(),auto=params.get('autostart')==='1';
+
+if(urlSession){session=urlSession;$('sessionLabel').textContent=urlSession}else{$('sessionLabel').textContent='Ingresar código';$('manualSession').classList.remove('hidden')}
+if(urlSid){$('sid').value=urlSid;$('sid').readOnly=true}
+if(urlName){$('name').value=urlName;$('name').readOnly=true}
+$('startBtn').onclick=start;
+if(auto&&urlSession&&urlSid&&urlName)setTimeout(start,180);
+
+onValue(ref(db,'.info/connected'),snapshot=>{
+  serverOnline=snapshot.val()===true;
+  if(active)renderConnection(serverOnline?'connected':'waiting');
+});
+
+function clean(value){return String(value||'').replace(/[.#$/\[\]]/g,'-').replace(/[^A-Za-z0-9_-]/g,'-').slice(0,80)}
+function studentLevel(current,next){const rank={green:0,yellow:1,orange:2,red:3};return(rank[next]||0)>(rank[current]||0)?next:current}
+
+async function start(){
+  if(active)return;
+  const name=$('name').value.trim(),sid=clean($('sid').value.trim()),sess=urlSession||clean($('session').value.trim());
+  if(!name||!sid||!sess){$('entryState').textContent='Falta completar nombre, documento o código de sesión.';return}
+
+  session=sess;student={id:sid,name,level:'green'};$('startBtn').disabled=true;$('entryState').textContent='Conectando…';
+  const studentRef=ref(db,`sessions/${session}/students/${sid}`);
+
+  try{
+    active=true;
+    await set(studentRef,{id:sid,name,level:'green',joinedAt:serverTimestamp(),lastSeen:serverTimestamp(),connected:true,monitorVersion:'0.8',cameraMode:'meet'});
+    onDisconnect(studentRef).update({lastSeen:serverTimestamp(),connected:false});
+    await eventSend('inicio','info','Inicio del monitor v0.8. La cámara permanece a cargo de Meet.');
+    hb=setInterval(sendHeartbeat,5000);
+  }catch(error){
+    active=false;$('startBtn').disabled=false;$('entryState').textContent='No se pudo establecer la conexión. Verificá el código e intentá nuevamente.';return;
+  }
+
+  $('entry').classList.add('hidden');$('connected').classList.remove('hidden');
+  $('who').textContent=name;$('documentActive').textContent=sid;$('sessionActive').textContent=session;
+  renderConnection(serverOnline?'connected':'waiting');
+}
+
+async function sendHeartbeat(){
+  if(!active||!student)return;
+  try{
+    await update(ref(db,`sessions/${session}/students/${student.id}`),{lastSeen:serverTimestamp(),connected:true});
+    renderConnection('connected');
+  }catch(error){renderConnection(navigator.onLine?'waiting':'offline')}
+}
+
+function renderConnection(state){
+  const panel=$('connectionPanel');
+  panel.className=state==='connected'?'':state==='offline'?'is-offline':'is-waiting';
+  if(state==='connected'){$('statusMark').textContent='✓';$('statusTitle').textContent='CONECTADO';$('statusDetail').textContent='La conexión con el sistema está activa.'}
+  else if(state==='offline'){$('statusMark').textContent='×';$('statusTitle').textContent='SIN CONEXIÓN';$('statusDetail').textContent='Revisá tu conexión a Internet.'}
+  else{$('statusMark').textContent='···';$('statusTitle').textContent='RECONECTANDO';$('statusDetail').textContent='Esperando respuesta del sistema.'}
+}
+
+async function eventSend(type,level='info',detail=''){
+  if(!active||!student)return;
+  student.level=studentLevel(student.level,level);
+  await update(ref(db,`sessions/${session}/students/${student.id}`),{level:student.level,lastSeen:serverTimestamp(),connected:true});
+  await push(ref(db,`sessions/${session}/events`),{ts:serverTimestamp(),studentId:student.id,studentName:student.name,type,level,detail});
+}
+
+document.addEventListener('visibilitychange',async()=>{
+  if(!active)return;
+  if(document.hidden)hiddenAt=Date.now();
+  else if(hiddenAt){const ms=Date.now()-hiddenAt,seconds=(ms/1000).toFixed(1);hiddenAt=null;if(ms<3000)await eventSend('cambio_pestana_breve','info',`Página oculta ${seconds} s.`);else await eventSend('cambio_pestana','yellow',`La página estuvo oculta ${seconds} s.`)}
+});
+
+window.addEventListener('offline',async()=>{
+  if(!active)return;
+  offlineAt=Date.now();renderConnection('offline');
+  try{await update(ref(db,`sessions/${session}/students/${student.id}`),{connected:false,lastSeen:serverTimestamp()})}catch(error){}
+});
+
+window.addEventListener('online',async()=>{
+  if(!active)return;
+  const seconds=offlineAt?((Date.now()-offlineAt)/1000).toFixed(1):'desconocida';offlineAt=null;renderConnection('waiting');
+  try{await eventSend('reconexion','info',`La conexión se restableció. Duración aproximada sin red: ${seconds} s.`);await sendHeartbeat()}catch(error){}
+});
+</script>
+</body>
+</html>

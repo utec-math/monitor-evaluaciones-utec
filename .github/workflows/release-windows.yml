@@ -1,0 +1,49 @@
+name: Publicar aplicación Windows
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Preparar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compilar aplicación
+        shell: pwsh
+        run: |
+          $project = "windows-app/MonitorEvaluaciones.App/MonitorEvaluaciones.App.csproj"
+          $publish = "$env:RUNNER_TEMP/monitor-publish"
+          dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o $publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $version = $env:GITHUB_REF_NAME
+          $zip = "$env:GITHUB_WORKSPACE/MonitorEvaluacionesUTEC-win-x64-$version.zip"
+          Compress-Archive -Path "$publish/*" -DestinationPath $zip -CompressionLevel Optimal
+
+      - name: Conservar artefacto de compilación
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonitorEvaluacionesUTEC-win-x64
+          path: MonitorEvaluacionesUTEC-win-x64-*.zip
+
+      - name: Crear descarga pública
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = $env:GITHUB_REF_NAME
+          $zip = "MonitorEvaluacionesUTEC-win-x64-$version.zip"
+          gh release create $version $zip --title "Monitor de Evaluaciones UTEC $version" --notes "Versión para Windows. La cámara queda exclusivamente a cargo de Google Meet; el monitor no solicita la webcam y presenta al estudiante una vista mínima con su identidad y el estado de conexión."

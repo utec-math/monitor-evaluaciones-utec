@@ -12,15 +12,17 @@ public sealed class MainForm : Form
 {
     private const string FirebaseBase = "https://preciencia1-default-rtdb.firebaseio.com";
     private const string DefaultHome = "https://utec-math.github.io/monitor-evaluaciones-utec/";
-    private const string StudentPage = "https://utec-math.github.io/monitor-evaluaciones-utec/estudiante-v07.html";
+    private const string StudentPage = "https://utec-math.github.io/monitor-evaluaciones-utec/estudiante-v08.html";
 
     private readonly TextBox sessionBox = new() { Width = 165 };
     private readonly TextBox nameBox = new() { Width = 190 };
     private readonly TextBox studentBox = new() { Width = 135 };
     private readonly Button connectButton = new() { Text = "Entrar a la evaluación", AutoSize = true };
     private readonly Button homeButton = new() { Text = "Inicio", AutoSize = true };
-    private readonly Label statusLabel = new() { AutoSize = true, Text = "Sin conectar", Padding = new Padding(8, 7, 0, 0) };
-    private readonly Label captureLabel = new() { AutoSize = true, Text = "○ Captura por eventos: inactiva", Padding = new Padding(8, 7, 0, 0), ForeColor = Color.DimGray };
+    private readonly Label statusLabel = new() { AutoSize = true, Text = "● DESCONECTADO", Padding = new Padding(8, 7, 8, 0), Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.Firebrick };
+    private readonly Label identityLabel = new() { AutoSize = true, Padding = new Padding(8, 8, 8, 0), ForeColor = Color.FromArgb(55, 78, 86) };
+    private readonly FlowLayoutPanel entryBar = new() { Dock = DockStyle.Top, Height = 54, Padding = new Padding(10, 8, 10, 6), WrapContents = false, AutoSize = false };
+    private readonly FlowLayoutPanel connectedBar = new() { Dock = DockStyle.Top, Height = 54, Padding = new Padding(10, 8, 10, 6), WrapContents = false, AutoSize = false, Visible = false, BackColor = Color.FromArgb(239, 247, 247) };
     private readonly WebView2 browser = new() { Dock = DockStyle.Fill };
     private readonly System.Windows.Forms.Timer syncTimer = new() { Interval = 2500 };
     private readonly HttpClient http = new();
@@ -40,13 +42,14 @@ public sealed class MainForm : Form
     private bool syncBusy;
     private bool connectedOnce;
     private bool closing;
+    private bool presenceOk;
 
     public MainForm(string? initialSession, string? initialStudent = null)
     {
         firebaseAuth = new FirebaseAnonymousAuth(http);
         clipUploader = new DriveClipUploader(http, firebaseAuth);
 
-        Text = "Monitor Evaluaciones UTEC · v0.7";
+        Text = "Monitor Evaluaciones UTEC · v0.8";
         Width = 1240;
         Height = 780;
         StartPosition = FormStartPosition.CenterScreen;
@@ -56,30 +59,24 @@ public sealed class MainForm : Form
         if (!string.IsNullOrWhiteSpace(initialStudent))
             studentBox.Text = CleanKey(initialStudent, 80);
 
-        var top = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            Height = 54,
-            Padding = new Padding(10, 8, 10, 6),
-            WrapContents = false,
-            AutoSize = false
-        };
-        top.Controls.Add(new Label { Text = "Sesión:", AutoSize = true, Padding = new Padding(0, 7, 3, 0) });
-        top.Controls.Add(sessionBox);
-        top.Controls.Add(new Label { Text = "Nombre:", AutoSize = true, Padding = new Padding(8, 7, 3, 0) });
-        top.Controls.Add(nameBox);
-        top.Controls.Add(new Label { Text = "Documento:", AutoSize = true, Padding = new Padding(8, 7, 3, 0) });
-        top.Controls.Add(studentBox);
-        top.Controls.Add(connectButton);
-        top.Controls.Add(homeButton);
-        top.Controls.Add(statusLabel);
-        top.Controls.Add(captureLabel);
+        entryBar.Controls.Add(new Label { Text = "Sesión:", AutoSize = true, Padding = new Padding(0, 7, 3, 0) });
+        entryBar.Controls.Add(sessionBox);
+        entryBar.Controls.Add(new Label { Text = "Nombre:", AutoSize = true, Padding = new Padding(8, 7, 3, 0) });
+        entryBar.Controls.Add(nameBox);
+        entryBar.Controls.Add(new Label { Text = "Documento:", AutoSize = true, Padding = new Padding(8, 7, 3, 0) });
+        entryBar.Controls.Add(studentBox);
+        entryBar.Controls.Add(connectButton);
+
+        connectedBar.Controls.Add(statusLabel);
+        connectedBar.Controls.Add(identityLabel);
+        connectedBar.Controls.Add(homeButton);
 
         Controls.Add(browser);
-        Controls.Add(top);
+        Controls.Add(connectedBar);
+        Controls.Add(entryBar);
 
         recorder.ClipSaved += result => BeginInvoke(async () => await OnClipSavedAsync(result));
-        recorder.RecorderError += error => BeginInvoke(() => captureLabel.Text = "⚠ Captura: " + error);
+        recorder.RecorderError += error => BeginInvoke(async () => await SendAppEventAsync("captura_error", "orange", error));
 
         connectButton.Click += async (_, _) => await ConnectAsync();
         homeButton.Click += (_, _) => NavigateHome();
@@ -185,10 +182,11 @@ public sealed class MainForm : Form
         {
             recorder.Start(session, studentId);
             connectedOnce = true;
-            captureLabel.Text = "● Captura por eventos: activa · sin audio";
-            captureLabel.ForeColor = Color.DarkGreen;
             await SendPresenceAsync(true);
             syncTimer.Start();
+            identityLabel.Text = $"{studentName}  ·  Documento {studentId}  ·  Sesión {session}";
+            entryBar.Visible = false;
+            connectedBar.Visible = true;
             UpdateStatus();
             NavigateHome();
         }
@@ -223,21 +221,17 @@ public sealed class MainForm : Form
 
     private async Task OnClipSavedAsync(ClipResult result)
     {
-        captureLabel.Text = "● Clip local guardado · preparando subida…";
-        captureLabel.ForeColor = Color.DarkGreen;
         var localDetail = $"Clip local asociado a {result.Reason}: {Path.GetFileName(result.FilePath)}";
         await SendAppEventAsync("clip_local_guardado", "info", localDetail);
 
         var uploaded = await clipUploader.UploadAsync(session, studentId, result);
         if (uploaded.Ok)
         {
-            captureLabel.Text = "☁ Clip subido a Drive";
             var detail = $"Clip de pantalla disponible para revisión · {result.Reason}";
             await SendAppEventAsync("clip_drive_disponible", "info", detail, uploaded.WebViewLink, uploaded.FileId);
         }
         else
         {
-            captureLabel.Text = "● Clip local guardado · Drive pendiente";
             await SendAppEventAsync("clip_drive_pendiente", "info", uploaded.Error);
         }
     }
@@ -352,7 +346,6 @@ public sealed class MainForm : Form
                 break;
             case "finish":
                 finished = true; unlockedUntil = null; await recorder.StopAsync();
-                captureLabel.Text = "○ Captura por eventos: finalizada"; captureLabel.ForeColor = Color.DimGray;
                 ShowMessage("<h2>Evaluación finalizada</h2><p>El docente finalizó esta sesión.</p><p>Mantené esta ventana abierta hasta recibir indicaciones.</p>", true);
                 break;
         }
@@ -371,7 +364,7 @@ public sealed class MainForm : Form
                 id = studentId,
                 uid = firebaseAuth.LocalId,
                 app = "windows-webview2",
-                version = "0.7",
+                version = "0.8",
                 lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 connected,
                 state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
@@ -379,23 +372,43 @@ public sealed class MainForm : Form
                 eventCapture = recorder.IsRunning
             };
             using var response = await http.PutAsJsonAsync(url, payload);
-            if (response.IsSuccessStatusCode) lastHeartbeat = DateTimeOffset.UtcNow;
+            presenceOk = response.IsSuccessStatusCode;
+            if (presenceOk) lastHeartbeat = DateTimeOffset.UtcNow;
         }
-        catch { }
+        catch { presenceOk = false; }
     }
 
     private bool IsUnlocked => unlockedUntil.HasValue && unlockedUntil.Value > DateTimeOffset.UtcNow;
 
     private void UpdateStatus()
     {
-        if (string.IsNullOrWhiteSpace(session)) { statusLabel.Text = "Sin conectar"; return; }
-        if (finished) statusLabel.Text = $"Finalizada · {session}";
+        if (string.IsNullOrWhiteSpace(session))
+        {
+            statusLabel.Text = "● DESCONECTADO";
+            statusLabel.ForeColor = Color.Firebrick;
+            return;
+        }
+        if (finished)
+        {
+            statusLabel.Text = "● FINALIZADA";
+            statusLabel.ForeColor = Color.DimGray;
+        }
         else if (IsUnlocked)
         {
             var left = unlockedUntil!.Value - DateTimeOffset.UtcNow;
-            statusLabel.Text = $"🔓 Desbloqueado · {Math.Max(1, Math.Ceiling(left.TotalSeconds))} s";
+            statusLabel.Text = $"● CONECTADO · acceso libre {Math.Max(1, Math.Ceiling(left.TotalSeconds))} s";
+            statusLabel.ForeColor = Color.DarkGreen;
         }
-        else statusLabel.Text = $"🔒 Conectado · {session}";
+        else if (!presenceOk || DateTimeOffset.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(12))
+        {
+            statusLabel.Text = "● RECONECTANDO";
+            statusLabel.ForeColor = Color.DarkGoldenrod;
+        }
+        else
+        {
+            statusLabel.Text = "● CONECTADO";
+            statusLabel.ForeColor = Color.DarkGreen;
+        }
     }
 
     private string EffectiveHome()

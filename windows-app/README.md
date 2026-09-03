@@ -1,8 +1,10 @@
-# App Windows · Monitor Evaluaciones UTEC
+# App Windows · Monitor Evaluaciones UTEC v0.8
 
-Prototipo de navegador de examen liviano para Windows, construido con .NET 8 + WebView2.
+Navegador de evaluación para Windows, construido con .NET 8 + WebView2.
 
-## Qué hace esta primera versión
+La cámara queda exclusivamente a cargo de Google Meet. La aplicación no solicita acceso a la webcam: registra presencia, navegación y clips de pantalla vinculados a eventos.
+
+## Qué hace esta versión
 
 - recibe un código de sesión;
 - lee `sessions/<sesion>/config` desde Firebase Realtime Database;
@@ -10,8 +12,10 @@ Prototipo de navegador de examen liviano para Windows, construido con .NET 8 + W
 - permite únicamente la página inicial y las direcciones de `allowedSites`;
 - soporta tres alcances: `exact`, `path` y `domain`;
 - bloquea ventanas nuevas no autorizadas;
-- vuelve a consultar la configuración cada 3 segundos, por lo que un sitio agregado o quitado por el docente se aplica durante la evaluación;
+- vuelve a consultar la configuración periódicamente, por lo que un sitio agregado o quitado por el docente se aplica durante la evaluación;
 - deshabilita DevTools y el menú contextual de WebView2.
+- muestra al estudiante una vista mínima con identidad y estado de conexión;
+- mantiene los estados técnicos y los enlaces a clips en el panel docente.
 
 Esta versión **todavía no bloquea Windows** (Alt+Tab, menú Inicio, otras aplicaciones, etc.). Ese será un nivel posterior.
 
@@ -35,16 +39,14 @@ El ejecutable queda dentro de `bin/Release/net8.0-windows/win-x64/publish/`.
 
 ## Configuración Firebase utilizada
 
-La app sólo necesita lectura pública de:
+La aplicación lee la configuración pública de:
 
 `/sessions/<sesion>/config`
 
-No necesita credenciales docentes ni contiene contraseñas.
+También usa autenticación anónima de Firebase para registrar presencia, comandos y eventos. No contiene credenciales docentes ni contraseñas.
 
-## Próximos pasos
+## Posibles próximos pasos
 
-1. integración del monitor del estudiante dentro de la app;
-2. comandos remotos docente → estudiante (Inicio, Recargar, Recuperar, Desbloquear, Finalizar);
-3. modo pantalla completa;
-4. nivel de bloqueo reforzado opcional;
-5. instalador/actualización automática.
+1. modo pantalla completa;
+2. nivel de bloqueo reforzado opcional;
+3. instalador y actualización automática.

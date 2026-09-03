@@ -1,56 +1,15 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Monitor UTEC · Estudiante v0.7</title>
-<style>
-:root{--deep:#123f4f;--teal:#15949b;--ink:#18333d;--line:#d7e3e7;--muted:#6f838b}
-*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:var(--ink)}.wrap{max-width:820px;margin:28px auto;padding:0 14px}.head{background:var(--deep);color:#fff;padding:20px 22px;border-radius:14px 14px 0 0}.kicker{font-size:11px;color:#9fd8d7;font-weight:700;letter-spacing:1.2px}.title{font-size:26px;font-weight:800;margin-top:3px}.card{background:#fff;border:1px solid #cfdee3;border-top:0;padding:22px;border-radius:0 0 14px 14px}.session{background:#eef7f7;border:1px solid #cfe4e5;padding:11px 14px;border-radius:10px;margin-bottom:18px}.session b{font-size:18px}.form{max-width:520px;margin:auto}.field{margin:14px 0}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.field input{width:100%;padding:13px 12px;border:1px solid #c9d9de;border-radius:9px;font-size:16px}.btn{width:100%;border:0;border-radius:10px;padding:14px;font-size:17px;font-weight:800;cursor:pointer;background:var(--teal);color:white;margin-top:8px}.btn:disabled{opacity:.55;cursor:wait}.small{font-size:12px;color:var(--muted);line-height:1.45}.notice{font-size:12px;line-height:1.5;background:#f4f8f9;border-left:4px solid var(--teal);padding:10px 12px;margin:18px 0}.status{padding:11px 12px;border-radius:9px;background:#eef5f6;margin-top:12px;font-size:13px}.hidden{display:none!important}.monitor{display:grid;grid-template-columns:1fr 1fr;gap:14px}.box{border:1px solid var(--line);border-radius:11px;padding:14px;background:#fbfdfe}.det{padding:8px 10px;border-radius:8px;margin-top:7px;font-size:12px;background:#f2f5f6}.ok{background:#e8f6ee;color:#23653c}.warn{background:#fff5dc;color:#775d16}.alert{background:#fde3e3;color:#963535}video{width:100%;min-height:190px;background:#111;border-radius:9px}.who{font-weight:800;font-size:18px;margin-bottom:5px}@media(max-width:650px){.monitor{grid-template-columns:1fr}.wrap{margin-top:12px}}
-</style>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="0; url=estudiante-v08.html">
+  <title>Monitor de Evaluaciones UTEC</title>
 </head>
-<body><div class="wrap">
-<div class="head"><div class="kicker">UTEC · EVALUACIÓN</div><div class="title">Ingreso a la evaluación</div></div>
-<div class="card">
-<section id="entry">
-<div id="sessionCard" class="session"><span class="small">SESIÓN</span><br><b id="sessionLabel">—</b></div>
-<div class="form">
-<div class="field"><label>Nombre y apellido</label><input id="name" autocomplete="name" placeholder="Ej.: Ana Pérez"></div>
-<div class="field"><label>Documento / cédula</label><input id="sid" inputmode="numeric" autocomplete="off" placeholder="Sin puntos ni guiones"></div>
-<div id="manualSession" class="field hidden"><label>Código de sesión</label><input id="session" autocomplete="off" placeholder="EVAL-XXXXXX"></div>
-<button id="startBtn" class="btn">Entrar a la evaluación</button>
-<div id="entryState" class="status">Completá tus datos y presioná Entrar.</div>
-<div class="notice"><b>Antes de entrar:</b> durante la actividad se registran eventos técnicos de supervisión. La cámara se analiza localmente y no se transmite video continuo. Los eventos requieren revisión humana y no generan sanciones automáticas.</div>
-</div></section>
-<section id="monitor" class="hidden">
-<div class="monitor"><div class="box"><div class="who" id="who"></div><div class="small" id="sessionActive"></div><div id="state" class="status">Iniciando…</div><div id="tabDetector" class="det warn">🗂️ Supervisión de página: iniciando…</div><div id="netDetector" class="det warn">🌐 Conexión: verificando…</div></div><div class="box"><video id="video" autoplay muted playsinline></video><div id="cameraDetector" class="det warn">🎥 Cámara: solicitando permiso…</div><div id="phoneDetector" class="det warn">📱 Análisis local de objetos: en espera</div></div></div>
-</section>
-</div></div>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getDatabase,ref,set,push,update,onDisconnect,serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js";
-const app=initializeApp(firebaseConfig),db=getDatabase(app),$=id=>document.getElementById(id);
-let active=false,session='',student=null,hb=null,objectModel=null,detectionBusy=false,phoneHits=[],lastPhoneAlert=0,hiddenAt=null,offlineAt=null,cameraTrack=null,cameraMuteAt=null,cameraMuteTimer=null,cameraProblemOpen=false;
-const PHONE_MIN_CONFIDENCE=.30,PHONE_IMMEDIATE_CONFIDENCE=.50,PHONE_WINDOW_MS=6000,PHONE_REQUIRED_HITS=2,PHONE_ALERT_COOLDOWN_MS=20000,DETECT_EVERY_MS=800,CAMERA_MUTE_GRACE_MS=5000;
-const params=new URLSearchParams(location.search),urlSession=clean(params.get('session')),urlSid=clean(params.get('sid')),urlName=String(params.get('name')||'').trim(),auto=params.get('autostart')==='1';
-if(urlSession){session=urlSession;$('sessionLabel').textContent=urlSession}else{$('sessionLabel').textContent='Ingresar código';$('manualSession').classList.remove('hidden')}
-if(urlSid){$('sid').value=urlSid;$('sid').readOnly=true}if(urlName){$('name').value=urlName;$('name').readOnly=true}
-$('startBtn').onclick=start;
-if(auto&&urlSession&&urlSid&&urlName)setTimeout(start,250);
-function clean(x){return String(x||'').replace(/[.#$/\[\]]/g,'-').replace(/[^A-Za-z0-9_-]/g,'-').slice(0,80)}
-function setDet(id,text,cls='warn'){const e=$(id);e.textContent=text;e.className='det '+cls}
-function studentLevel(current,next){const r={green:0,yellow:1,orange:2,red:3};return(r[next]||0)>(r[current]||0)?next:current}
-async function start(){if(active)return;const name=$('name').value.trim(),sid=clean($('sid').value.trim()),sess=urlSession||clean($('session').value.trim());if(!name||!sid||!sess){$('entryState').textContent='Falta completar nombre, documento o código de sesión.';return}session=sess;student={id:sid,name,level:'green'};$('startBtn').disabled=true;$('entryState').textContent='Registrando ingreso…';
-const sref=ref(db,`sessions/${session}/students/${sid}`);try{active=true;await set(sref,{id:sid,name,level:'green',joinedAt:serverTimestamp(),lastSeen:serverTimestamp(),connected:true});onDisconnect(sref).update({lastSeen:serverTimestamp(),connected:false});await eventSend('inicio','info','Inicio del monitoreo');hb=setInterval(()=>update(sref,{lastSeen:serverTimestamp(),connected:navigator.onLine}),5000)}catch(e){active=false;$('startBtn').disabled=false;$('entryState').textContent='No se pudo registrar el ingreso. Verificá el código de sesión e intentá nuevamente.';return}
-$('entry').classList.add('hidden');$('monitor').classList.remove('hidden');$('who').textContent=name;$('sessionActive').textContent=`Sesión ${session} · Documento ${sid}`;$('state').textContent='🟢 Conectado';setDet('tabDetector','🗂️ Supervisión de página: activa','ok');setDet('netDetector',navigator.onLine?'🌐 Conexión: estable':'🌐 Conexión: interrumpida',navigator.onLine?'ok':'alert');
-try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});$('video').srcObject=stream;await $('video').play();cameraTrack=stream.getVideoTracks()[0]||null;setupCameraMonitor();setDet('cameraDetector','🎥 Cámara: activa','ok');startPhoneDetector()}catch(e){setDet('cameraDetector','🎥 Cámara: no disponible','alert');$('state').textContent='🟠 Conectado · cámara no disponible';await eventSend('camara_no_disponible','orange',e.message||'No hay cámara disponible')}}
-function setupCameraMonitor(){if(!cameraTrack)return;cameraTrack.addEventListener('ended',async()=>{if(!active)return;cameraProblemOpen=true;setDet('cameraDetector','🎥 Cámara: interrumpida','alert');await eventSend('camara_interrumpida','orange','La pista de video finalizó o fue desactivada.')});cameraTrack.addEventListener('mute',()=>{if(!active)return;cameraMuteAt=Date.now();setDet('cameraDetector','🎥 Cámara: verificando señal…','warn');clearTimeout(cameraMuteTimer);cameraMuteTimer=setTimeout(async()=>{if(cameraTrack&&cameraTrack.muted&&active){cameraProblemOpen=true;const sec=((Date.now()-cameraMuteAt)/1000).toFixed(1);setDet('cameraDetector','🎥 Cámara: señal interrumpida','alert');await eventSend('camara_sin_senal','yellow',`La cámara estuvo sin entregar cuadros durante al menos ${sec} s.`)}},CAMERA_MUTE_GRACE_MS)});cameraTrack.addEventListener('unmute',async()=>{if(!active)return;clearTimeout(cameraMuteTimer);const had=cameraProblemOpen||cameraMuteAt!==null;cameraMuteAt=null;cameraProblemOpen=false;setDet('cameraDetector','🎥 Cámara: activa','ok');if(had)await eventSend('camara_recuperada','info','La señal de cámara se recuperó.')})}
-async function startPhoneDetector(){setDet('phoneDetector','📱 Análisis local de objetos: iniciando…','warn');try{objectModel=await window.cocoSsd.load({base:'mobilenet_v2'});setDet('phoneDetector','📱 Análisis local de objetos: activo','ok');setInterval(detectPhone,DETECT_EVERY_MS)}catch(e){setDet('phoneDetector','📱 Análisis local de objetos: no disponible','warn');await eventSend('detector_telefono_error','yellow',e.message||'No se pudo iniciar el detector')}}
-async function detectPhone(){if(!active||!objectModel||detectionBusy||document.hidden)return;const video=$('video');if(video.readyState<2)return;detectionBusy=true;try{const ps=await objectModel.detect(video,20,PHONE_MIN_CONFIDENCE);const now=Date.now(),phones=ps.filter(p=>p.class==='cell phone'&&p.score>=PHONE_MIN_CONFIDENCE);phoneHits=phoneHits.filter(h=>now-h.ts<=PHONE_WINDOW_MS);if(phones.length){const best=Math.max(...phones.map(p=>p.score));phoneHits.push({ts:now,score:best});if((best>=PHONE_IMMEDIATE_CONFIDENCE||phoneHits.length>=PHONE_REQUIRED_HITS)&&now-lastPhoneAlert>=PHONE_ALERT_COOLDOWN_MS){lastPhoneAlert=now;const mx=Math.max(...phoneHits.map(h=>h.score));await eventSend('telefono','red',`Posible teléfono detectado (confianza máxima ${Math.round(mx*100)}%). Requiere revisión humana.`);phoneHits=[]}}}catch(e){}finally{detectionBusy=false}}
-async function eventSend(type,lvl='info',detail=''){if(!active||!student)return;student.level=studentLevel(student.level,lvl);await update(ref(db,`sessions/${session}/students/${student.id}`),{level:student.level,lastSeen:serverTimestamp(),connected:navigator.onLine});await push(ref(db,`sessions/${session}/events`),{ts:serverTimestamp(),studentId:student.id,studentName:student.name,type,level:lvl,detail})}
-document.addEventListener('visibilitychange',async()=>{if(!active)return;if(document.hidden)hiddenAt=Date.now();else if(hiddenAt){const ms=Date.now()-hiddenAt,sec=(ms/1000).toFixed(1);hiddenAt=null;if(ms<3000)await eventSend('cambio_pestana_breve','info',`Página oculta ${sec} s.`);else await eventSend('cambio_pestana','yellow',`La página estuvo oculta ${sec} s.`)}});
-window.addEventListener('offline',async()=>{if(!active)return;offlineAt=Date.now();setDet('netDetector','🌐 Conexión: interrumpida','alert');try{await update(ref(db,`sessions/${session}/students/${student.id}`),{connected:false,lastSeen:serverTimestamp()})}catch(e){}});
-window.addEventListener('online',async()=>{if(!active)return;const sec=offlineAt?((Date.now()-offlineAt)/1000).toFixed(1):'desconocida';offlineAt=null;setDet('netDetector','🌐 Conexión: estable','ok');await eventSend('reconexion','info',`La conexión se restableció. Duración aproximada sin red: ${sec} s.`)});
-</script></body></html>
+<body>
+  <p>Abriendo el monitor…</p>
+  <script>
+    window.location.replace(`estudiante-v08.html${window.location.search}${window.location.hash}`);
+  </script>
+</body>
+</html>
