@@ -12,7 +12,7 @@ public sealed class MainForm : Form
 {
     private const string FirebaseBase = "https://preciencia1-default-rtdb.firebaseio.com";
     private const string DefaultHome = "https://utec-math.github.io/monitor-evaluaciones-utec/";
-    private const string StudentPage = "https://utec-math.github.io/monitor-evaluaciones-utec/estudiante-v08.html";
+    private const string StudentPage = "https://utec-math.github.io/monitor-evaluaciones-utec/estudiante-v09.html";
 
     private readonly TextBox sessionBox = new() { Width = 165 };
     private readonly TextBox nameBox = new() { Width = 190 };
@@ -49,7 +49,7 @@ public sealed class MainForm : Form
         firebaseAuth = new FirebaseAnonymousAuth(http);
         clipUploader = new DriveClipUploader(http, firebaseAuth);
 
-        Text = "Monitor Evaluaciones UTEC · v0.8";
+        Text = "Monitor Evaluaciones UTEC · v0.9";
         Width = 1240;
         Height = 780;
         StartPosition = FormStartPosition.CenterScreen;
@@ -178,6 +178,19 @@ public sealed class MainForm : Form
         finished = false;
         unlockedUntil = null;
 
+        if (!await SendPresenceAsync(true))
+        {
+            connectButton.Enabled = true;
+            sessionBox.ReadOnly = false;
+            nameBox.ReadOnly = false;
+            studentBox.ReadOnly = false;
+            MessageBox.Show(
+                "No se pudo registrar la conexión. Verificá que el código corresponda a una sesión abierta e intentá nuevamente.",
+                "Monitor UTEC", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            UpdateStatus();
+            return;
+        }
+
         if (await RefreshConfigAsync(true))
         {
             recorder.Start(session, studentId);
@@ -192,6 +205,7 @@ public sealed class MainForm : Form
         }
         else
         {
+            await SendPresenceAsync(false);
             connectButton.Enabled = true;
             sessionBox.ReadOnly = false;
             nameBox.ReadOnly = false;
@@ -247,6 +261,7 @@ public sealed class MainForm : Form
             var payload = new
             {
                 ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                studentUid = firebaseAuth.LocalId,
                 studentId,
                 studentName = string.IsNullOrWhiteSpace(studentName) ? studentId : studentName,
                 type,
@@ -285,13 +300,28 @@ public sealed class MainForm : Form
 
         try
         {
-            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/config.json";
+            if (!await firebaseAuth.EnsureSignedInAsync()) throw new InvalidOperationException("No se pudo autenticar la instalación.");
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/config.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
             using var response = await http.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var json = await response.Content.ReadAsStringAsync();
             var loaded = JsonSerializer.Deserialize<SessionConfig>(json, JsonOptions()) ?? new SessionConfig();
             loaded.Normalize();
             config = loaded;
+
+            if (!config.Active)
+            {
+                if (connectedOnce && !finished)
+                {
+                    finished = true;
+                    unlockedUntil = null;
+                    await recorder.StopAsync();
+                    ShowMessage("<h2>Sesión cerrada</h2><p>El docente cerró esta sesión.</p><p>Mantené la ventana abierta hasta recibir indicaciones.</p>", true);
+                }
+                if (showErrors)
+                    MessageBox.Show("Esta sesión no está abierta.", "Monitor UTEC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
+            }
 
             if (!IsUnlocked && !finished && browser.Source is Uri current && current.Scheme is "http" or "https" && !IsAllowed(current.ToString()))
                 ShowBlocked(current.ToString());
@@ -312,7 +342,7 @@ public sealed class MainForm : Form
         try
         {
             if (!await firebaseAuth.EnsureSignedInAsync()) return;
-            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/commands/{Uri.EscapeDataString(studentId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/commands/{Uri.EscapeDataString(firebaseAuth.LocalId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
             using var response = await http.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var json = await response.Content.ReadAsStringAsync();
@@ -352,19 +382,20 @@ public sealed class MainForm : Form
         await SendPresenceAsync(true); UpdateStatus();
     }
 
-    private async Task SendPresenceAsync(bool connected)
+    private async Task<bool> SendPresenceAsync(bool connected)
     {
-        if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
+        if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return false;
         try
         {
-            if (!await firebaseAuth.EnsureSignedInAsync()) return;
-            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/clients/{Uri.EscapeDataString(studentId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
+            if (!await firebaseAuth.EnsureSignedInAsync()) return false;
+            var url = $"{FirebaseBase}/sessions/{Uri.EscapeDataString(session)}/clients/{Uri.EscapeDataString(firebaseAuth.LocalId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
             var payload = new
             {
                 id = studentId,
                 uid = firebaseAuth.LocalId,
+                name = studentName,
                 app = "windows-webview2",
-                version = "0.8",
+                version = "0.9",
                 lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 connected,
                 state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
@@ -374,8 +405,9 @@ public sealed class MainForm : Form
             using var response = await http.PutAsJsonAsync(url, payload);
             presenceOk = response.IsSuccessStatusCode;
             if (presenceOk) lastHeartbeat = DateTimeOffset.UtcNow;
+            return presenceOk;
         }
-        catch { presenceOk = false; }
+        catch { presenceOk = false; return false; }
     }
 
     private bool IsUnlocked => unlockedUntil.HasValue && unlockedUntil.Value > DateTimeOffset.UtcNow;
@@ -507,6 +539,7 @@ public sealed class SessionConfig
 {
     public string HomeUrl { get; set; } = DefaultHomeValue;
     public List<AllowedSite> AllowedSites { get; set; } = new();
+    public bool Active { get; set; }
     private const string DefaultHomeValue = "https://utec-math.github.io/monitor-evaluaciones-utec/";
     public void Normalize()
     {

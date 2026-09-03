@@ -23,10 +23,11 @@ main{max-width:760px;margin:24px auto;padding:0 14px}.card{background:#fff;borde
 </main>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getDatabase,ref,set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getDatabase,ref,get,set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut,setPersistence,browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 const app=initializeApp(firebaseConfig),db=getDatabase(app),auth=getAuth(app),$=id=>document.getElementById(id);
+setPersistence(auth,browserSessionPersistence).catch(()=>{});
 function safeSession(x){return String(x||'').trim().replace(/[^A-Za-z0-9_-]/g,'-').slice(0,60)}
 function parseMoodle(raw){
   try{
@@ -39,15 +40,15 @@ function parseMoodle(raw){
     return{homeUrl:u.href,quizBase,host:u.host};
   }catch(e){return null}
 }
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginStatus').textContent='';try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(err){$('loginStatus').textContent='No se pudo iniciar sesión. Verificá correo y contraseña.'}});
-onAuthStateChanged(auth,user=>{if(user){$('loginCard').classList.add('hidden');$('configCard').classList.remove('hidden')}else{$('configCard').classList.add('hidden');$('loginCard').classList.remove('hidden')}});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginStatus').textContent='';try{await setPersistence(auth,browserSessionPersistence);await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(err){$('loginStatus').textContent='No se pudo iniciar sesión. Verificá correo y contraseña.'}});
+onAuthStateChanged(auth,async user=>{if(user){try{const admin=await get(ref(db,`admins/${user.uid}`));if(admin.val()!==true)throw new Error('not-admin');$('loginCard').classList.add('hidden');$('configCard').classList.remove('hidden')}catch{$('loginStatus').textContent='Esta cuenta no está autorizada como docente.';await signOut(auth)}}else{$('configCard').classList.add('hidden');$('loginCard').classList.remove('hidden')}});
 $('logoutBtn').onclick=()=>signOut(auth);
 $('applyBtn').onclick=async()=>{
   const session=safeSession($('session').value),m=parseMoodle($('moodleUrl').value);
   $('result').className='status';$('summary').classList.add('hidden');
   if(!session){$('result').className='status bad';$('result').textContent='Ingresá un código de sesión.';return}
   if(!m){$('result').className='status bad';$('result').textContent='La URL debe ser una página de cuestionario Moodle que contenga /mod/quiz/.';return}
-  const config={homeUrl:m.homeUrl,allowedSites:[{url:m.quizBase,scope:'path'}]};
+  const now=Date.now(),config={homeUrl:m.homeUrl,allowedSites:[{url:m.quizBase,scope:'path'}],active:true,createdAt:now,updatedAt:now};
   $('result').textContent='Guardando configuración…';
   try{
     await set(ref(db,`sessions/${session}/config`),config);

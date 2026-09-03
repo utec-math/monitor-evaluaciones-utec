@@ -1,8 +1,10 @@
-# App Windows · Monitor Evaluaciones UTEC v0.8
+# App Windows · Monitor Evaluaciones UTEC v0.9
 
 Navegador de evaluación para Windows, construido con .NET 8 + WebView2.
 
 La cámara queda exclusivamente a cargo de Google Meet. La aplicación no solicita acceso a la webcam: registra presencia, navegación y clips de pantalla vinculados a eventos.
+
+La versión 0.9 usa una identidad anónima propia, inmutable durante la sesión. Firebase vincula presencia, comandos y eventos a ese UID y rechaza escrituras que intenten atribuirse a otro cliente.
 
 ## Qué hace esta versión
 
@@ -43,7 +45,7 @@ La aplicación lee la configuración pública de:
 
 `/sessions/<sesion>/config`
 
-También usa autenticación anónima de Firebase para registrar presencia, comandos y eventos. No contiene credenciales docentes ni contraseñas.
+También usa autenticación anónima de Firebase para registrar presencia, comandos y eventos. No contiene credenciales docentes ni contraseñas. La sesión debe existir y estar abierta por un administrador antes de que un estudiante pueda conectarse.
 
 ## Posibles próximos pasos
 
