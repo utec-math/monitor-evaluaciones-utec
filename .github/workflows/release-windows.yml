@@ -2,14 +2,15 @@ name: Publicar aplicación Windows
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: contains(github.event.head_commit.message, '[release-windows]')
     runs-on: windows-latest
 
     steps:
@@ -29,7 +30,8 @@ jobs:
           dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -o $publish
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          $version = $env:GITHUB_REF_NAME
+          [xml]$projectXml = Get-Content $project
+          $version = "v$($projectXml.Project.PropertyGroup.Version)"
           $zip = "$env:GITHUB_WORKSPACE/MonitorEvaluacionesUTEC-win-x64-$version.zip"
           Compress-Archive -Path "$publish/*" -DestinationPath $zip -CompressionLevel Optimal
 
@@ -44,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = $env:GITHUB_REF_NAME
+          [xml]$projectXml = Get-Content "windows-app/MonitorEvaluaciones.App/MonitorEvaluaciones.App.csproj"
+          $version = "v$($projectXml.Project.PropertyGroup.Version)"
           $zip = "MonitorEvaluacionesUTEC-win-x64-$version.zip"
-          gh release create $version $zip --title "Monitor de Evaluaciones UTEC $version" --notes "Versión para Windows. La cámara queda exclusivamente a cargo de Google Meet; el monitor no solicita la webcam y presenta al estudiante una vista mínima con su identidad y el estado de conexión."
+          gh release create $version $zip --target "$env:GITHUB_SHA" --title "Monitor de Evaluaciones UTEC $version" --notes "Versión para Windows. La cámara queda exclusivamente a cargo de Google Meet; el monitor no solicita la webcam y presenta al estudiante una vista mínima con su identidad y el estado de conexión."
