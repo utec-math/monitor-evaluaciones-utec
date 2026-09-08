@@ -14,14 +14,22 @@ internal static class ConnectedHeaderStyle
 
     public static void Apply(Form form)
     {
+        // Identifica la barra conectada por su contenido, no por Visible.
+        // Antes de Application.Run el Form todavía no es visible y, por lo tanto,
+        // usar !p.Visible podía seleccionar por error el panel de inicio de sesión.
         var connectedBar = form.Controls
             .OfType<FlowLayoutPanel>()
-            .FirstOrDefault(p => !p.Visible && p.Controls.OfType<Button>().Any());
+            .FirstOrDefault(p =>
+                p.Controls.OfType<TextBox>().Count() == 0 &&
+                p.Controls.OfType<Button>().Any(b => string.Equals(b.Text, "Inicio", StringComparison.OrdinalIgnoreCase)) &&
+                p.Controls.OfType<Label>().Count() >= 2);
 
         if (connectedBar is null)
             return;
 
-        var homeButton = connectedBar.Controls.OfType<Button>().FirstOrDefault();
+        var homeButton = connectedBar.Controls
+            .OfType<Button>()
+            .FirstOrDefault(b => string.Equals(b.Text, "Inicio", StringComparison.OrdinalIgnoreCase));
         var labels = connectedBar.Controls.OfType<Label>().ToList();
 
         if (homeButton is null || labels.Count < 2)
@@ -31,22 +39,23 @@ internal static class ConnectedHeaderStyle
         var identityLabel = labels[1];
 
         connectedBar.Dock = DockStyle.Top;
-        connectedBar.Height = 62;
+        connectedBar.Height = 60;
         connectedBar.Padding = new Padding(18, 10, 18, 8);
         connectedBar.Margin = Padding.Empty;
         connectedBar.WrapContents = false;
         connectedBar.FlowDirection = FlowDirection.LeftToRight;
         connectedBar.BackColor = Ivory;
-        connectedBar.BorderStyle = BorderStyle.FixedSingle;
+        connectedBar.BorderStyle = BorderStyle.None;
 
+        // Marca discreta a la izquierda. Solo se agrega a la barra conectada.
         var brand = new Label
         {
             Text = "Monitor de Evaluaciones",
             AutoSize = true,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
             ForeColor = Tobacco,
             BackColor = Ivory,
-            Padding = new Padding(0, 7, 18, 0),
+            Padding = new Padding(0, 8, 22, 0),
             Margin = Padding.Empty
         };
 
@@ -54,22 +63,22 @@ internal static class ConnectedHeaderStyle
         connectedBar.Controls.SetChildIndex(brand, 0);
 
         statusLabel.BackColor = Ivory;
-        statusLabel.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        statusLabel.Padding = new Padding(0, 7, 14, 0);
+        statusLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        statusLabel.Padding = new Padding(0, 8, 18, 0);
         statusLabel.Margin = Padding.Empty;
 
         identityLabel.BackColor = Ivory;
         identityLabel.ForeColor = Charcoal;
-        identityLabel.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
-        identityLabel.Padding = new Padding(0, 8, 16, 0);
+        identityLabel.Font = new Font("Segoe UI", 9.5F, FontStyle.Regular);
+        identityLabel.Padding = new Padding(0, 9, 16, 0);
         identityLabel.Margin = Padding.Empty;
 
         homeButton.Text = "Inicio";
         homeButton.AutoSize = false;
-        homeButton.Width = 92;
-        homeButton.Height = 36;
-        homeButton.Margin = new Padding(8, 2, 0, 0);
-        homeButton.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        homeButton.Width = 88;
+        homeButton.Height = 34;
+        homeButton.Margin = new Padding(8, 3, 0, 0);
+        homeButton.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
         homeButton.ForeColor = Color.White;
         homeButton.BackColor = Petroleum;
         homeButton.FlatStyle = FlatStyle.Flat;
@@ -78,7 +87,7 @@ internal static class ConnectedHeaderStyle
         homeButton.Cursor = Cursors.Hand;
         homeButton.UseVisualStyleBackColor = false;
 
-        // Mantiene un separador visual discreto con la paleta aprobada.
+        // Separador inferior sutil con la paleta aprobada.
         connectedBar.Paint += (_, e) =>
         {
             using var pen = new Pen(Camel);
