@@ -13,10 +13,11 @@ internal static class Program
         try
         {
             CenteredLoginLayout.Apply(form);
+            ConnectedHeaderStyle.Apply(form);
         }
         catch
         {
-            // Si el ajuste visual falla por cualquier motivo, el monitor sigue
+            // Si un ajuste visual falla por cualquier motivo, el monitor sigue
             // abriendo con la interfaz original de la versión 0.9.
         }
 
