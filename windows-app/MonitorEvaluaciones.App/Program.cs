@@ -8,6 +8,9 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         var session = args.FirstOrDefault(a => a.StartsWith("--session=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2)[1];
         var student = args.FirstOrDefault(a => a.StartsWith("--id=", StringComparison.OrdinalIgnoreCase))?.Split('=', 2)[1];
-        Application.Run(new MainForm(session, student));
+
+        var mainForm = new MainForm(session, student);
+        StudentStartScreen.Apply(mainForm);
+        Application.Run(mainForm);
     }
 }
