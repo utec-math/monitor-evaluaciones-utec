@@ -3,51 +3,321 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ayuda docente · Monitor de Evaluaciones UTEC</title>
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Ayuda rápida · Monitor de Evaluaciones</title>
 <style>
-:root{--ink:#17333d;--deep:#123f4f;--teal:#15949b;--line:#dce6e9;--muted:#71858d;--green:#2d9566;--amber:#d7a62c;--orange:#c65d19;--red:#b83a3a}
-*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#edf3f5;color:var(--ink);line-height:1.45}header{background:var(--deep);color:#fff;padding:20px 24px}.header-inner{max-width:1160px;margin:auto;display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}.kicker{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:#9fd8d7;font-weight:700}.title{font-size:27px;font-weight:800}.back{color:var(--deep);background:#eef5f6;text-decoration:none;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:700}main{max-width:1160px;margin:20px auto;padding:0 16px 40px}.intro{background:#fff;border:1px solid #cfdee3;border-radius:12px;padding:17px 19px}.intro h1{font-size:22px;margin:0 0 4px}.muted{font-size:13px;color:var(--muted)}h2{font-size:18px;margin:24px 0 10px}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.step{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px}.step b{display:flex;align-items:center;gap:8px;margin-bottom:5px}.num{width:25px;height:25px;border-radius:50%;display:inline-grid;place-items:center;background:var(--teal);color:#fff;font-size:13px;flex:0 0 auto}.step p{font-size:12px;color:#61757d;margin:0}.map{display:grid;grid-template-columns:220px minmax(470px,1fr) 220px;grid-template-rows:repeat(3,auto);gap:13px;align-items:center}.callout{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px;position:relative;font-size:12px;box-shadow:0 5px 14px rgba(18,63,79,.05)}.callout:nth-of-type(1){grid-column:1;grid-row:1}.callout:nth-of-type(2){grid-column:1;grid-row:2}.callout:nth-of-type(3){grid-column:1;grid-row:3}.callout:nth-of-type(4){grid-column:3;grid-row:1}.callout:nth-of-type(5){grid-column:3;grid-row:2}.callout:nth-of-type(6){grid-column:3;grid-row:3}.callout b{display:block;font-size:13px;margin-bottom:4px}.callout.left::after{content:"→";position:absolute;right:-27px;top:50%;transform:translateY(-50%);font-size:25px;color:var(--teal);font-weight:900}.callout.right::before{content:"←";position:absolute;left:-27px;top:50%;transform:translateY(-50%);font-size:25px;color:var(--teal);font-weight:900}.mock{grid-column:2;grid-row:1/4;background:#f8fafb;border:1px solid #cbdce1;border-radius:13px;overflow:hidden;box-shadow:0 10px 28px rgba(18,63,79,.09)}.mock-head{background:var(--deep);color:#fff;padding:13px 15px;font-weight:800}.mock-body{padding:10px}.zone{position:relative;background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px;margin-bottom:8px}.zone:last-child{margin-bottom:0}.mark{position:absolute;right:7px;top:7px;width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:var(--teal);color:#fff;font-size:12px;font-weight:800;box-shadow:0 0 0 3px #fff}.toolbar{display:flex;gap:5px;flex-wrap:wrap;padding-right:30px}.field,.button,.code{border-radius:5px;padding:6px 7px;font-size:10px}.field,.code{background:#f7fafb;border:1px solid #cad9de}.field{min-width:100px}.button{background:#eef5f6;color:var(--deep);font-weight:700}.button.primary{background:var(--teal);color:#fff}.button.danger{background:#fdeaea;color:#8d3030}.shareline{display:flex;gap:6px;padding-right:30px}.code{flex:1;font-weight:800;letter-spacing:.05em}.label{font-size:10px;color:#60747c;font-weight:700;margin-bottom:5px}.nav-grid{display:grid;grid-template-columns:1fr auto;gap:6px;padding-right:30px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding-right:30px}.stat{background:#f8fafb;border:1px solid #e1e9ec;border-radius:6px;padding:6px}.stat strong{font-size:15px;display:block}.stat span{font-size:8px;color:#71858d}.student{border-left:5px solid var(--amber);padding-right:30px}.student-top{display:flex;justify-content:space-between;gap:8px}.student-name{font-size:12px;font-weight:800}.badge{font-size:9px;background:#fff5d8;color:#7a5d14;border-radius:999px;padding:3px 6px;font-weight:800}.chips{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0}.chip{font-size:8px;padding:3px 5px;background:#f3f6f7;border:1px solid #e0e8eb;border-radius:999px}.controls{display:flex;gap:4px;flex-wrap:wrap}.controls .button{font-size:8px;padding:4px 5px}.log{font-size:9px;padding-right:30px}.log-row{display:grid;grid-template-columns:55px 1fr 1fr;gap:5px;padding:4px 0;border-top:1px solid #edf1f3}.legend{display:grid;grid-template-columns:1fr 1fr;gap:12px}.legend-card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:15px}.legend-card h3{font-size:14px;margin:0 0 10px}.legend-row{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:7px 0}.dot{width:12px;height:12px;border-radius:50%;margin-top:3px;flex:0 0 auto}.green{background:var(--green)}.yellow{background:var(--amber)}.orange{background:var(--orange)}.red{background:var(--red)}.note{margin-top:14px;background:#fff8e5;border:1px solid #efdca4;border-radius:10px;padding:12px 14px;font-size:12px;color:#6f5818}
-@media(max-width:900px){.steps{grid-template-columns:repeat(2,1fr)}.map{display:block}.callout,.mock{margin-bottom:10px}.callout.left::after,.callout.right::before{display:none}.legend{grid-template-columns:1fr}}
-@media(max-width:560px){.steps{grid-template-columns:1fr}.map{display:block}.callout{margin-bottom:8px}.mock{margin-bottom:8px}.stats{grid-template-columns:repeat(2,1fr)}.title{font-size:22px}}
+:root{
+  --ivory:#F0E7D8;
+  --ivory-soft:#F7F0E5;
+  --surface:#FAF7F1;
+  --surface-strong:#FFFDF9;
+  --camel:#B99A75;
+  --camel-soft:#D8C6AE;
+  --tobacco:#765642;
+  --petroleum:#35585A;
+  --petroleum-dark:#294748;
+  --coal:#2E2E2E;
+  --muted:#806E60;
+  --green:#3F6B52;
+  --green-soft:#E2ECE4;
+  --amber:#A17B2C;
+  --amber-soft:#F4E9CB;
+  --orange:#B86637;
+  --orange-soft:#F7E4D6;
+  --red:#A84B46;
+  --red-soft:#F7E2E0;
+  --shadow:0 12px 34px rgba(118,86,66,.08);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:"Segoe UI",Arial,Helvetica,sans-serif;
+  color:var(--coal);
+  line-height:1.48;
+  background:
+    radial-gradient(circle at -8% 94%,transparent 0 190px,rgba(185,154,117,.08) 191px 216px,transparent 217px),
+    radial-gradient(circle at 108% 12%,transparent 0 245px,rgba(185,154,117,.07) 246px 270px,transparent 271px),
+    var(--ivory);
+}
+body::before,body::after{
+  content:"";
+  position:fixed;
+  width:12px;height:12px;
+  background:rgba(185,154,117,.52);
+  box-shadow:14px 14px rgba(185,154,117,.38),28px 28px rgba(185,154,117,.26);
+  pointer-events:none;z-index:0;
+}
+body::before{left:34px;top:120px}
+body::after{right:58px;bottom:48px;transform:rotate(180deg)}
+a{color:inherit}
+header{
+  position:relative;z-index:2;
+  background:var(--petroleum);
+  color:var(--surface);
+  border-bottom:1px solid rgba(185,154,117,.75);
+  box-shadow:0 5px 20px rgba(46,46,46,.08);
+}
+.header-inner{
+  max-width:1180px;margin:auto;padding:20px 22px;
+  display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+}
+.kicker{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#DCCCB7;font-weight:800}
+.title{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:0;border-radius:9px;padding:9px 12px;text-decoration:none;font-weight:750;font-size:13px;cursor:pointer;
+}
+.btn.light{background:var(--surface);color:var(--petroleum)}
+.btn.outline{background:transparent;color:var(--surface);border:1px solid rgba(250,247,241,.45)}
+main{position:relative;z-index:1;max-width:1180px;margin:22px auto 42px;padding:0 18px}
+.hero{
+  display:grid;grid-template-columns:1.45fr .75fr;gap:16px;
+  background:rgba(250,247,241,.98);border:1px solid var(--camel-soft);border-radius:16px;padding:22px;box-shadow:var(--shadow);
+}
+.hero h1{margin:0 0 7px;color:var(--tobacco);font-size:24px;letter-spacing:-.01em}
+.hero p{margin:0;color:var(--muted);font-size:14px}
+.hero-note{background:var(--ivory-soft);border:1px solid var(--camel-soft);border-radius:12px;padding:14px}
+.hero-note b{display:block;color:var(--petroleum);margin-bottom:5px}
+.hero-note span{font-size:12px;color:var(--muted)}
+.section-title{margin:28px 0 11px;display:flex;align-items:center;gap:10px;color:var(--tobacco);font-size:19px}
+.section-title::after{content:"";height:1px;background:var(--camel-soft);flex:1}
+.flow{display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
+.flow-card{
+  min-height:122px;background:var(--surface);border:1px solid var(--camel-soft);border-radius:12px;padding:13px;box-shadow:0 7px 20px rgba(118,86,66,.04)
+}
+.flow-card .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--petroleum);color:white;font-size:12px;font-weight:800;margin-bottom:8px}
+.flow-card b{font-size:13px;color:var(--coal);display:block;margin-bottom:4px}
+.flow-card p{margin:0;font-size:11.5px;color:var(--muted)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{
+  background:rgba(250,247,241,.98);border:1px solid var(--camel-soft);border-radius:14px;padding:17px;box-shadow:0 8px 24px rgba(118,86,66,.045)
+}
+.panel h3{margin:0 0 10px;color:var(--petroleum);font-size:15px}
+.control-list{display:grid;gap:9px}
+.control{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:start;padding:10px 0;border-bottom:1px solid #E8DCCB}
+.control:last-child{border-bottom:0;padding-bottom:0}
+.control .name{font-weight:800;font-size:12px;color:var(--tobacco)}
+.control .desc{font-size:12px;color:var(--muted)}
+.control .warn{color:var(--red);font-weight:750}
+.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:var(--ivory-soft);border:1px solid var(--camel-soft);font-size:10px;font-weight:800;color:var(--tobacco);white-space:nowrap}
+.nav-scopes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.scope{background:var(--surface-strong);border:1px solid var(--camel-soft);border-radius:10px;padding:10px}
+.scope b{display:block;font-size:12px;color:var(--petroleum);margin-bottom:3px}
+.scope span{font-size:11px;color:var(--muted)}
+.stats-demo{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:11px 0}
+.stat{background:var(--surface-strong);border:1px solid var(--camel-soft);border-radius:10px;padding:10px}
+.stat strong{display:block;font-size:21px;color:var(--petroleum)}
+.stat span{font-size:10px;color:var(--muted)}
+.student-demo{position:relative;background:var(--surface-strong);border:1px solid var(--camel-soft);border-radius:12px;padding:13px 13px 13px 17px;overflow:hidden}
+.student-demo::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--amber)}
+.student-top{display:flex;justify-content:space-between;gap:10px}
+.student-name{font-size:13px;font-weight:800}
+.student-meta{font-size:10.5px;color:var(--muted);margin-top:2px}
+.badge{font-size:10px;font-weight:800;padding:4px 7px;border-radius:999px;background:var(--amber-soft);color:#7B5C19;white-space:nowrap}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.chip{font-size:9.5px;padding:4px 6px;border-radius:999px;background:var(--ivory-soft);border:1px solid var(--camel-soft)}
+.remote-demo{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.mini{font-size:9px;font-weight:800;padding:5px 7px;border-radius:7px;background:#EEE4D7;color:var(--petroleum);border:1px solid var(--camel-soft)}
+.mini.primary{background:var(--petroleum);color:white;border-color:var(--petroleum)}
+.mini.danger{background:var(--red-soft);color:var(--red);border-color:#E9B9B5}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}
+.level{border-radius:10px;padding:10px;border:1px solid var(--camel-soft);font-size:11px}
+.level b{display:block;margin-bottom:3px}
+.level.green{background:var(--green-soft);color:var(--green)}
+.level.yellow{background:var(--amber-soft);color:#765A1C}
+.level.orange{background:var(--orange-soft);color:var(--orange)}
+.quick-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.quick-table th,.quick-table td{text-align:left;padding:9px 8px;border-bottom:1px solid #E8DCCB;vertical-align:top}
+.quick-table th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--tobacco)}
+.quick-table td{color:var(--muted)}
+.quick-table td:first-child{font-weight:800;color:var(--coal);white-space:nowrap}
+.note{margin-top:14px;border-radius:11px;padding:12px 14px;font-size:12px}
+.note.info{background:#E8EFEA;border:1px solid #B9CCBE;color:#3F5F49}
+.note.caution{background:#F6EBD4;border:1px solid #DEC89B;color:#6F571D}
+.note.danger{background:var(--red-soft);border:1px solid #E8B9B5;color:#84423E}
+.footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--camel-soft);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:11px}
+@media(max-width:1000px){.flow{grid-template-columns:repeat(3,1fr)}.hero{grid-template-columns:1fr}.grid-2{grid-template-columns:1fr}}
+@media(max-width:650px){.flow{grid-template-columns:1fr 1fr}.nav-scopes,.levels{grid-template-columns:1fr}.stats-demo{grid-template-columns:1fr 1fr}.control{grid-template-columns:1fr;gap:3px}.header-inner{padding:17px 16px}.title{font-size:23px}main{padding:0 12px}.hero{padding:17px}}
+@media(max-width:420px){.flow{grid-template-columns:1fr}.stats-demo{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><div class="header-inner"><div><div class="kicker">UTEC · MONITOR DE EVALUACIONES</div><div class="title">Ayuda rápida para docentes</div></div><a class="back" href="docente.html">← Volver al panel</a></div></header>
-<main>
-  <section class="intro"><h1>Lo esencial, en una sola pantalla</h1><div class="muted">El monitor organiza señales para facilitar la revisión. Ningún color ni evento determina por sí solo una irregularidad.</div></section>
-  <h2>Para comenzar</h2>
-  <section class="steps">
-    <article class="step"><b><span class="num">1</span>Nueva sesión</b><p>Generá un código diferente para cada evaluación.</p></article>
-    <article class="step"><b><span class="num">2</span>Configurá</b><p>Indicá la página inicial y, si corresponde, otros sitios permitidos.</p></article>
-    <article class="step"><b><span class="num">3</span>Compartí</b><p>Los estudiantes escriben el código en la aplicación instalada.</p></article>
-    <article class="step"><b><span class="num">4</span>Cerrá</b><p>Al finalizar, cerrá la sesión para impedir nuevas conexiones y subidas.</p></article>
-  </section>
-  <h2>Mapa del panel</h2>
-  <section class="map">
-    <aside class="callout left"><b><span class="num">1</span> Sesión</b>Creá una nueva o conectate a una existente. El botón indica claramente si está abierta o cerrada.</aside>
-    <aside class="callout left"><b><span class="num">3</span> Navegación</b>Definí la página de inicio y los únicos sitios adicionales que podrá abrir la aplicación.</aside>
-    <aside class="callout left"><b><span class="num">5</span> Estudiantes</b>Las tarjetas muestran conexión, prioridad, eventos y clips de cada estudiante.</aside>
-    <div class="mock" aria-label="Esquema de la pantalla docente">
-      <div class="mock-head">Monitor de Evaluaciones · Panel docente</div>
-      <div class="mock-body">
-        <div class="zone"><span class="mark">1</span><div class="toolbar"><span class="field">EVAL-ABC123</span><span class="button primary">Conectar</span><span class="button">Nueva sesión</span><span class="button danger">Cerrar sesión</span><span class="button">Exportar CSV</span></div></div>
-        <div class="zone"><span class="mark">2</span><div class="label">Código para estudiantes</div><div class="shareline"><span class="code">EVAL-ABC123</span><span class="button primary">Copiar código</span></div></div>
-        <div class="zone"><span class="mark">3</span><div class="label">Navegación permitida</div><div class="nav-grid"><span class="field">Página inicial: Moodle</span><span class="button primary">Guardar</span><span class="field">Sitio adicional: GeoGebra</span><span class="button primary">+ Agregar</span></div></div>
-        <div class="zone"><span class="mark">4</span><div class="stats"><div class="stat"><strong>18</strong><span>registrados</span></div><div class="stat"><strong>17</strong><span>con señal</span></div><div class="stat"><strong>2</strong><span>atención</span></div><div class="stat"><strong>31</strong><span>eventos</span></div></div></div>
-        <div class="zone student"><span class="mark">5</span><div class="student-top"><div><div class="student-name">Estudiante de ejemplo</div><div class="muted">Documento 12345678 · ● conectada</div></div><span class="badge">🟡 revisar</span></div><div class="chips"><span class="chip">🖥️ cambios 1</span><span class="chip">🌐 reconexiones 0</span><span class="chip">🎞️ clips 1</span></div><div class="controls"><span class="button">Inicio</span><span class="button">Recargar</span><span class="button primary">Recuperar</span><span class="button">🔓 2 min</span><span class="button">🔒 Bloquear</span><span class="button danger">Finalizar</span></div></div>
-        <div class="zone log"><span class="mark">6</span><div class="label">Registro cronológico</div><div class="log-row"><b>18:42</b><span>Estudiante de ejemplo</span><span>Cambio de aplicación</span></div><div class="log-row"><b>18:43</b><span>Estudiante de ejemplo</span><span>Clip disponible</span></div></div>
-      </div>
+<header>
+  <div class="header-inner">
+    <div>
+      <div class="kicker">MONITOR · PANEL DOCENTE</div>
+      <div class="title">Ayuda rápida para docentes</div>
     </div>
-    <aside class="callout right"><b><span class="num">2</span> Código</b>Copiá solamente este código. El estudiante lo ingresa en el programa de Windows.</aside>
-    <aside class="callout right"><b><span class="num">4</span> Resumen</b>Los contadores permiten saber rápidamente cuántos están conectados y quiénes requieren revisión.</aside>
-    <aside class="callout right"><b><span class="num">6</span> Registro</b>Ordena todos los eventos por hora y permite exportarlos para analizarlos después.</aside>
+    <div class="header-actions">
+      <a class="btn outline" href="#flujo">Ver flujo rápido</a>
+      <a class="btn light" href="docente.html">← Volver al panel</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <h1>Qué hacer antes, durante y al terminar una evaluación</h1>
+      <p>Esta guía resume el funcionamiento actual del panel docente: creación y apertura de sesiones, navegación autorizada, criterios de atención, controles remotos de la app de estudiante y exportación del registro.</p>
+    </div>
+    <aside class="hero-note">
+      <b>Idea clave</b>
+      <span>El monitor organiza señales para ayudar a revisar lo que sucede. Los colores y eventos no implican sanción automática ni prueban por sí solos una irregularidad.</span>
+    </aside>
   </section>
-  <h2>Cómo interpretar la información</h2>
-  <section class="legend">
-    <article class="legend-card"><h3>Colores de las tarjetas</h3><div class="legend-row"><span class="dot green"></span><span><b>Verde:</b> sin señales relevantes recientes.</span></div><div class="legend-row"><span class="dot yellow"></span><span><b>Amarillo:</b> hay un evento reciente para revisar.</span></div><div class="legend-row"><span class="dot orange"></span><span><b>Naranja:</b> se acumularon varias señales en poco tiempo.</span></div><div class="legend-row"><span class="dot red"></span><span><b>Rojo:</b> prioridad alta si se incorpora una regla específica.</span></div></article>
-    <article class="legend-card"><h3>Controles sobre la aplicación</h3><div class="legend-row"><span><b>Inicio / Recargar:</b> devuelve o actualiza la página autorizada.</span></div><div class="legend-row"><span><b>Recuperar:</b> intenta restablecer la navegación normal.</span></div><div class="legend-row"><span><b>Desbloquear 2 min:</b> permite navegación libre temporalmente por decisión docente.</span></div><div class="legend-row"><span><b>Bloquear:</b> termina el permiso temporal.</span></div><div class="legend-row"><span><b>Finalizar:</b> detiene esa aplicación de evaluación.</span></div></article>
+
+  <h2 id="flujo" class="section-title">Flujo recomendado</h2>
+  <section class="flow">
+    <article class="flow-card"><span class="n">1</span><b>Ingresá</b><p>Accedé con tu cuenta docente autorizada.</p></article>
+    <article class="flow-card"><span class="n">2</span><b>Creá o conectá</b><p>Usá “Nueva sesión” o escribí un código existente y presioná “Conectar”.</p></article>
+    <article class="flow-card"><span class="n">3</span><b>Abrí la sesión</b><p>La sesión debe quedar abierta para que las aplicaciones puedan conectarse.</p></article>
+    <article class="flow-card"><span class="n">4</span><b>Configurá</b><p>Definí la página inicial y los sitios adicionales permitidos.</p></article>
+    <article class="flow-card"><span class="n">5</span><b>Compartí el código</b><p>El estudiante ingresa ese código en la aplicación de Windows.</p></article>
+    <article class="flow-card"><span class="n">6</span><b>Cerrá y exportá</b><p>Al finalizar, cerrá la sesión y exportá el CSV si necesitás conservar el registro.</p></article>
   </section>
-  <div class="note"><b>Importante:</b> una desconexión, un cambio de aplicación o un clip son elementos para revisión humana. El monitor no sanciona ni concluye automáticamente que hubo copia.</div>
+
+  <h2 class="section-title">Controles de sesión</h2>
+  <section class="grid-2">
+    <article class="panel">
+      <h3>Barra principal</h3>
+      <div class="control-list">
+        <div class="control"><div class="name">Sesión + Conectar</div><div class="desc">Permite observar y administrar una sesión existente. Conectar no equivale necesariamente a abrirla: el estado activo se controla aparte.</div></div>
+        <div class="control"><div class="name">Nueva sesión</div><div class="desc">Genera un código tipo <span class="pill">EVAL-XXXXXX</span>, crea la sesión abierta y conecta el panel a ella.</div></div>
+        <div class="control"><div class="name">Abrir / Cerrar sesión</div><div class="desc">Controla si las aplicaciones de estudiantes pueden conectarse. Al terminar la evaluación, conviene cerrarla.</div></div>
+        <div class="control"><div class="name">Vaciar sesión</div><div class="desc"><span class="warn">Acción destructiva.</span> Elimina los datos guardados de esa sesión, incluida su configuración. El panel pide confirmación antes de hacerlo.</div></div>
+        <div class="control"><div class="name">Exportar CSV</div><div class="desc">Descarga el registro cronológico de eventos con hora, estudiante, tipo, nivel y detalle.</div></div>
+        <div class="control"><div class="name">Sonido sí / no</div><div class="desc">Activa o silencia el aviso sonoro cuando llega un evento nuevo de nivel importante o urgente.</div></div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <h3>Código para estudiantes</h3>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 10px">El panel muestra un código de sesión. Eso es lo que debe recibir el estudiante; no necesita una URL especial.</p>
+      <div style="display:flex;gap:8px;align-items:center;background:var(--surface-strong);border:1px solid var(--camel-soft);border-radius:10px;padding:10px">
+        <span style="flex:1;font-weight:850;letter-spacing:.05em;color:var(--tobacco)">EVAL-ABC123</span>
+        <span class="mini primary">Copiar código</span>
+      </div>
+      <div class="note info"><b>Consejo:</b> usá un código distinto para cada evaluación. “Nueva sesión” ya lo hace automáticamente.</div>
+      <div class="note caution"><b>Al finalizar:</b> cerrar la sesión impide nuevas conexiones. No es necesario vaciarla para terminar una evaluación.</div>
+    </article>
+  </section>
+
+  <h2 class="section-title">Navegación permitida</h2>
+  <section class="grid-2">
+    <article class="panel">
+      <h3>Página inicial y sitios adicionales</h3>
+      <div class="control-list">
+        <div class="control"><div class="name">Página inicial</div><div class="desc">Es la página a la que vuelve la aplicación cuando el docente usa “Inicio”, “Recuperar” o cuando corresponde restablecer la navegación. Si no definís otra, se usa la página predeterminada del monitor.</div></div>
+        <div class="control"><div class="name">Agregar dirección</div><div class="desc">Añade un sitio autorizado. La sesión admite hasta 30 direcciones adicionales.</div></div>
+        <div class="control"><div class="name">Quitar</div><div class="desc">Elimina una dirección de la lista de navegación permitida.</div></div>
+      </div>
+    </article>
+    <article class="panel">
+      <h3>Qué significa el alcance</h3>
+      <div class="nav-scopes">
+        <div class="scope"><b>Sólo esta página</b><span>Permite únicamente la dirección exacta indicada.</span></div>
+        <div class="scope"><b>Ruta y subpáginas</b><span>Permite esa ruta y todo lo que cuelga de ella dentro del mismo sitio.</span></div>
+        <div class="scope"><b>Todo el dominio</b><span>Permite cualquier página del dominio indicado.</span></div>
+      </div>
+      <div class="note caution"><b>Recomendación:</b> elegí el alcance más acotado que sea práctico para la evaluación.</div>
+    </article>
+  </section>
+
+  <h2 class="section-title">Resumen y criterios de atención</h2>
+  <section class="grid-2">
+    <article class="panel">
+      <h3>Contadores rápidos</h3>
+      <div class="stats-demo">
+        <div class="stat"><strong>18</strong><span>estudiantes registrados</span></div>
+        <div class="stat"><strong>17</strong><span>con señal reciente</span></div>
+        <div class="stat"><strong>2</strong><span>requieren atención</span></div>
+        <div class="stat"><strong>31</strong><span>eventos totales</span></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:0">“Con señal reciente” se actualiza en tiempo real. Una pérdida momentánea de señal puede deberse a red, suspensión del equipo u otros factores técnicos.</p>
+    </article>
+    <article class="panel">
+      <h3>Criterios configurables</h3>
+      <table class="quick-table">
+        <thead><tr><th>Ajuste</th><th>Qué hace</th></tr></thead>
+        <tbody>
+          <tr><td>Ventana</td><td>Período reciente usado para contar señales. Valor inicial: 10 min.</td></tr>
+          <tr><td>Cambios de aplicación</td><td>Al llegar al umbral, la tarjeta pasa a naranja. Valor inicial: 3.</td></tr>
+          <tr><td>Eventos relevantes</td><td>Acumulación mixta que también puede elevar la tarjeta a naranja. Valor inicial: 4.</td></tr>
+        </tbody>
+      </table>
+      <div class="note info">Estos criterios sólo ordenan la atención del docente. No bloquean al estudiante ni generan sanciones.</div>
+    </article>
+  </section>
+
+  <h2 class="section-title">Tarjetas de estudiantes</h2>
+  <section class="grid-2">
+    <article class="panel">
+      <h3>Qué muestra cada tarjeta</h3>
+      <div class="student-demo">
+        <div class="student-top">
+          <div><div class="student-name">Estudiante de ejemplo</div><div class="student-meta">Documento 12345678 · ● conectada · 11:42:08</div></div>
+          <span class="badge">🟡 revisar</span>
+        </div>
+        <div class="chips"><span class="chip">🖥️ cambio de aplicación 1</span><span class="chip">🌐 reconexión 0</span><span class="chip">🎞️ clips 1</span></div>
+        <div class="remote-demo"><span class="mini">Inicio</span><span class="mini">Recargar</span><span class="mini primary">🛟 Recuperar</span><span class="mini">🔓 2 min</span><span class="mini">🔒 Bloquear</span><span class="mini danger">Finalizar</span></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">También muestra la versión de la aplicación, su estado y los últimos eventos asociados a ese estudiante.</p>
+    </article>
+
+    <article class="panel">
+      <h3>Colores de prioridad</h3>
+      <div class="levels">
+        <div class="level green"><b>🟢 Verde</b>Sin señales relevantes recientes.</div>
+        <div class="level yellow"><b>🟡 Amarillo</b>Hay al menos una señal reciente para revisar.</div>
+        <div class="level orange"><b>🟠 Naranja</b>Se alcanzó uno de los umbrales configurados.</div>
+      </div>
+      <div class="note info"><b>Rojo:</b> queda reservado para estados urgentes o reglas específicas; la priorización automática actual trabaja principalmente con verde, amarillo y naranja.</div>
+    </article>
+  </section>
+
+  <h2 class="section-title">Controles remotos de la aplicación</h2>
+  <section class="panel">
+    <table class="quick-table">
+      <thead><tr><th>Botón</th><th>Acción sobre la app del estudiante</th><th>Cuándo usarlo</th></tr></thead>
+      <tbody>
+        <tr><td>Inicio</td><td>Vuelve a la página inicial configurada.</td><td>Para llevar al estudiante nuevamente al punto de partida.</td></tr>
+        <tr><td>Recargar</td><td>Actualiza la página actual.</td><td>Cuando una página quedó congelada o no cargó correctamente.</td></tr>
+        <tr><td>Recuperar</td><td>Restablece el estado normal, quita permisos temporales y vuelve a cargar la configuración.</td><td>Primera opción ante un problema de navegación o estado de la app.</td></tr>
+        <tr><td>🔓 2 min</td><td>Habilita navegación web libre durante dos minutos.</td><td>Para resolver una situación puntual bajo indicación docente.</td></tr>
+        <tr><td>🔒 Bloquear</td><td>Finaliza el permiso temporal y vuelve a aplicar las restricciones.</td><td>Si querés cortar antes el desbloqueo.</td></tr>
+        <tr><td>Finalizar</td><td>Finaliza esa aplicación de evaluación y detiene su captura de eventos.</td><td>Al terminar de forma individual o ante una indicación explícita.</td></tr>
+      </tbody>
+    </table>
+    <div class="note caution">Los comandos se habilitan cuando la aplicación del estudiante tiene señal reciente. “Finalizar” solicita confirmación en el panel docente.</div>
+  </section>
+
+  <h2 class="section-title">Registro cronológico y cierre</h2>
+  <section class="grid-2">
+    <article class="panel">
+      <h3>Registro cronológico</h3>
+      <p style="font-size:12px;color:var(--muted);margin:0">Reúne los eventos de la sesión ordenados por hora. Incluye estudiante, evento, nivel y detalle. Es útil para reconstruir una situación después de la evaluación sin depender únicamente de lo que muestra una tarjeta en ese momento.</p>
+      <div class="note info">El botón <b>Exportar CSV</b> guarda ese registro para analizarlo luego en Excel, Sheets u otra herramienta.</div>
+    </article>
+    <article class="panel">
+      <h3>Al terminar la evaluación</h3>
+      <div class="control-list">
+        <div class="control"><div class="name">1. Cerrá la sesión</div><div class="desc">Evita nuevas conexiones y nuevas subidas desde las aplicaciones.</div></div>
+        <div class="control"><div class="name">2. Exportá si corresponde</div><div class="desc">Guardá el CSV si necesitás conservar un registro externo.</div></div>
+        <div class="control"><div class="name">3. No vacíes por rutina</div><div class="desc">Vaciar elimina los datos de la sesión. Usalo sólo cuando realmente quieras borrar ese contenido.</div></div>
+      </div>
+    </article>
+  </section>
+
+  <div class="note danger"><b>Importante:</b> desconexiones, cambios de aplicación, reconexiones, clips y otros eventos son señales para revisión humana. El monitor no determina automáticamente que existió copia ni reemplaza el criterio docente.</div>
+
+  <div class="footer">
+    <span>Monitor de Evaluaciones · Ayuda rápida docente</span>
+    <a class="btn light" href="docente.html">Volver al panel docente</a>
+  </div>
 </main>
 </body>
 </html>
