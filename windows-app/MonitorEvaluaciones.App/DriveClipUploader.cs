@@ -1,7 +1,4 @@
-using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Text;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace MonitorEvaluaciones.App;
@@ -30,82 +27,31 @@ public sealed class DriveClipUploader
         if (!await auth.EnsureSignedInAsync())
             return new ClipUploadResult(false, "", "", "No se pudo autenticar la app en Firebase.");
 
-        // El receptor actual espera JSON con dataBase64. Antes se leía el AVI entero
-        // en memoria y luego se construía otro string Base64 también completo.
-        // Este contenido conserva exactamente el mismo formato JSON, pero codifica
-        // el archivo por streaming mientras HttpClient lo envía.
-        var metadata = new UploadMetadata(
-            auth.IdToken,
-            auth.LocalId,
+        var bytes = await File.ReadAllBytesAsync(clip.FilePath);
+        var payload = new
+        {
+            idToken = auth.IdToken,
+            clientUid = auth.LocalId,
             session,
             studentId,
-            Path.GetFileName(clip.FilePath),
-            "video/x-msvideo",
-            clip.TriggeredAt.ToUnixTimeMilliseconds(),
-            clip.Reason,
-            clip.Detail);
+            fileName = Path.GetFileName(clip.FilePath),
+            contentType = "video/x-msvideo",
+            dataBase64 = Convert.ToBase64String(bytes),
+            triggeredAt = clip.TriggeredAt.ToUnixTimeMilliseconds(),
+            reason = clip.Reason,
+            detail = clip.Detail
+        };
 
-        string lastError = "No se pudo subir el clip.";
-        for (var attempt = 1; attempt <= 3; attempt++)
-        {
-            try
-            {
-                using var content = new StreamingBase64JsonContent(clip.FilePath, metadata);
-                using var response = await http.PostAsync(endpoint, content);
-                var text = await response.Content.ReadAsStringAsync();
+        using var response = await http.PostAsJsonAsync(endpoint, payload);
+        var text = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return new ClipUploadResult(false, "", "", $"El receptor respondió {response.StatusCode}: {Short(text)}");
 
-                if (!response.IsSuccessStatusCode)
-                {
-                    lastError = $"El receptor respondió {response.StatusCode}: {Short(text)}";
-                    if ((int)response.StatusCode < 500) break;
-                }
-                else
-                {
-                    var result = JsonSerializer.Deserialize<ReceiverResponse>(text,
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (result?.Ok == true && !string.IsNullOrWhiteSpace(result.WebViewLink))
-                    {
-                        // Una vez que Drive confirma que el clip existe, ya no hay razón
-                        // para conservar una copia permanente en la PC del estudiante.
-                        DeleteLocalClip(clip.FilePath);
-                        return new ClipUploadResult(true, result.FileId ?? "", result.WebViewLink, "");
-                    }
+        var result = JsonSerializer.Deserialize<ReceiverResponse>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (result?.Ok != true || string.IsNullOrWhiteSpace(result.WebViewLink))
+            return new ClipUploadResult(false, result?.FileId ?? "", result?.WebViewLink ?? "", result?.Error ?? "El receptor no devolvió un enlace de Drive.");
 
-                    lastError = result?.Error ?? "El receptor no devolvió un enlace de Drive.";
-                    break;
-                }
-            }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
-            {
-                lastError = ex.Message;
-            }
-
-            if (attempt < 3)
-                await Task.Delay(TimeSpan.FromSeconds(attempt == 1 ? 2 : 5));
-        }
-
-        // Si la subida no pudo confirmarse, el clip queda temporalmente en disco.
-        // Es preferible conservarlo a perder evidencia por una caída momentánea de red.
-        return new ClipUploadResult(false, "", "", lastError);
-    }
-
-    private static void DeleteLocalClip(string videoPath)
-    {
-        TryDelete(videoPath);
-        TryDelete(Path.ChangeExtension(videoPath, ".json"));
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
-        catch
-        {
-            // La subida ya fue confirmada. Si Windows mantiene el archivo bloqueado
-            // por unos instantes, no se interrumpe el examen por un fallo de limpieza.
-        }
+        return new ClipUploadResult(true, result.FileId ?? "", result.WebViewLink, "");
     }
 
     private async Task<string> ResolveReceiverUrlAsync()
@@ -123,71 +69,6 @@ public sealed class DriveClipUploader
     {
         text = (text ?? "").Trim();
         return text.Length <= 300 ? text : text[..300];
-    }
-
-    private sealed record UploadMetadata(
-        string IdToken,
-        string ClientUid,
-        string Session,
-        string StudentId,
-        string FileName,
-        string ContentType,
-        long TriggeredAt,
-        string Reason,
-        string Detail);
-
-    private sealed class StreamingBase64JsonContent : HttpContent
-    {
-        private readonly string filePath;
-        private readonly byte[] prefix;
-        private readonly byte[] suffix = Encoding.UTF8.GetBytes("\"}");
-        private readonly long contentLength;
-
-        public StreamingBase64JsonContent(string path, UploadMetadata metadata)
-        {
-            filePath = path;
-            var prefixText = "{" +
-                "\"idToken\":" + Json(metadata.IdToken) + "," +
-                "\"clientUid\":" + Json(metadata.ClientUid) + "," +
-                "\"session\":" + Json(metadata.Session) + "," +
-                "\"studentId\":" + Json(metadata.StudentId) + "," +
-                "\"fileName\":" + Json(metadata.FileName) + "," +
-                "\"contentType\":" + Json(metadata.ContentType) + "," +
-                "\"triggeredAt\":" + metadata.TriggeredAt + "," +
-                "\"reason\":" + Json(metadata.Reason) + "," +
-                "\"detail\":" + Json(metadata.Detail) + "," +
-                "\"dataBase64\":\"";
-
-            prefix = Encoding.UTF8.GetBytes(prefixText);
-            var fileLength = new FileInfo(filePath).Length;
-            var base64Length = 4L * ((fileLength + 2L) / 3L);
-            contentLength = prefix.LongLength + base64Length + suffix.LongLength;
-            Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
-        }
-
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-        {
-            await stream.WriteAsync(prefix);
-            await using var file = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                bufferSize: 64 * 1024, useAsync: true);
-
-            using (var transform = new ToBase64Transform())
-            using (var base64Stream = new CryptoStream(stream, transform, CryptoStreamMode.Write, leaveOpen: true))
-            {
-                await file.CopyToAsync(base64Stream, 64 * 1024);
-                base64Stream.FlushFinalBlock();
-            }
-
-            await stream.WriteAsync(suffix);
-        }
-
-        protected override bool TryComputeLength(out long length)
-        {
-            length = contentLength;
-            return true;
-        }
-
-        private static string Json(string? value) => JsonSerializer.Serialize(value ?? "");
     }
 
     private sealed class ReceiverResponse
