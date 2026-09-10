@@ -363,7 +363,7 @@ internal static class PreCloseExperience
                 }
 
                 // Alternancia sutil de marrones para reforzar el aspecto retro.
-                var brush = i % 3 switch
+                var brush = (i % 3) switch
                 {
                     0 => camelBrush,
                     1 => tobaccoBrush,
