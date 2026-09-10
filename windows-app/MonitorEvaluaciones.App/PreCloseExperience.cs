@@ -37,6 +37,7 @@ internal static class PreCloseExperience
         {
             Idle,
             Preparing,
+            Finalizing,
             Ready,
             Closing
         }
@@ -203,7 +204,7 @@ internal static class PreCloseExperience
 
             animationTimer.Tick += (_, _) =>
             {
-                if (stage != Stage.Preparing)
+                if (stage is not (Stage.Preparing or Stage.Finalizing))
                     return;
 
                 if (progress.Value < RetroProgressBar.SegmentCount - 2)
@@ -214,13 +215,14 @@ internal static class PreCloseExperience
 
             // Este evento se agrega después del manejador original de MainForm.
             // Primer cierre: mostramos la espera. Segundo cierre programático de
-            // MainForm: significa que sus tareas terminaron y pasamos a "Listo".
-            // Tercer cierre, ya iniciado por el estudiante: se permite de inmediato.
+            // MainForm: sus tareas principales ya terminaron; antes de mostrar
+            // "Listo" damos tiempo a que cualquier subida de clip ya iniciada
+            // alcance un estado estable. Tercer cierre: se permite de inmediato.
             form.FormClosing += OnFormClosing;
             LayoutOverlay();
         }
 
-        private void OnFormClosing(object? sender, FormClosingEventArgs e)
+        private async void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
             // En la pantalla de ingreso no hace falta pre-cierre: todavía no hay
             // una evaluación activa ni procesos de monitoreo que expliquen una espera.
@@ -237,12 +239,20 @@ internal static class PreCloseExperience
 
             if (stage == Stage.Preparing)
             {
-                // MainForm acaba de terminar su cierre interno y vuelve a llamar
-                // a Close(). Lo retenemos una sola vez para que el estudiante vea
-                // claramente que ya terminó y haga el cierre definitivo.
-                stage = Stage.Ready;
+                // MainForm terminó su secuencia de cierre y vuelve a llamar Close().
+                // Retenemos ese cierre mientras comprobamos que el callback del último
+                // clip ya fue atendido y que su intento de subida terminó.
+                stage = Stage.Finalizing;
                 e.Cancel = true;
+                await WaitForPendingClipWorkAsync();
+                stage = Stage.Ready;
                 ShowReady();
+                return;
+            }
+
+            if (stage == Stage.Finalizing)
+            {
+                e.Cancel = true;
                 return;
             }
 
@@ -253,6 +263,90 @@ internal static class PreCloseExperience
                 form.ControlBox = previousControlBox;
                 overlay.Visible = false;
                 e.Cancel = false;
+            }
+        }
+
+        private async Task WaitForPendingClipWorkAsync()
+        {
+            // El guardado de un clip notifica a MainForm mediante BeginInvoke.
+            // Este marcador se coloca detrás de esos callbacks en la cola de UI:
+            // cuando se ejecuta, cualquier clip recién guardado ya fue registrado
+            // como pendiente antes de comenzar su subida.
+            await DrainPostedUiWorkAsync();
+
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+            var noUploadDeadline = DateTimeOffset.UtcNow.AddSeconds(15);
+            var sawUploadBusy = false;
+
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                var pending = GetPendingUploadCount();
+                if (pending <= 0)
+                    return;
+
+                var gateCount = GetUploadGateCount();
+                if (gateCount == 0)
+                {
+                    sawUploadBusy = true;
+                }
+                else if (sawUploadBusy)
+                {
+                    // El intento terminó. Si el clip continúa pendiente significa que
+                    // la subida falló; el archivo local se conserva y no retenemos al
+                    // estudiante innecesariamente.
+                    return;
+                }
+
+                // Si por alguna razón el callback quedó esperando red/autenticación
+                // antes de alcanzar la subida, tampoco bloqueamos el cierre sin límite.
+                if (!sawUploadBusy && DateTimeOffset.UtcNow >= noUploadDeadline)
+                    return;
+
+                await Task.Delay(120);
+            }
+        }
+
+        private Task DrainPostedUiWorkAsync()
+        {
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                form.BeginInvoke(new Action(() => completion.TrySetResult(true)));
+            }
+            catch
+            {
+                completion.TrySetResult(true);
+            }
+            return completion.Task;
+        }
+
+        private int GetPendingUploadCount()
+        {
+            try
+            {
+                var field = form.GetType().GetField("pendingUploads",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                return field?.GetValue(form) is System.Collections.IDictionary dictionary
+                    ? dictionary.Count
+                    : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private int GetUploadGateCount()
+        {
+            try
+            {
+                var field = form.GetType().GetField("uploadGate",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                return field?.GetValue(form) is SemaphoreSlim gate ? gate.CurrentCount : 1;
+            }
+            catch
+            {
+                return 1;
             }
         }
 
