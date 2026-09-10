@@ -96,17 +96,8 @@ public sealed class MainForm : Form
             syncTimer.Stop();
             uploadRetryTimer.Stop();
             await recorder.StopAsync();
-            DiscoverLocalClips();
             await RetryPendingUploadsAsync();
             await SendPresenceAsync(false);
-
-            if (pendingUploads.Count > 0)
-            {
-                MessageBox.Show(
-                    $"No se pudieron enviar {pendingUploads.Count} clip(s) antes de cerrar. Se conservarán temporalmente en Documentos\\MonitorEvaluacionesUTEC\\Clips para evitar perderlos.",
-                    "Clips pendientes de envío", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-
             e.Cancel = false;
             Close();
         };
@@ -159,18 +150,6 @@ public sealed class MainForm : Form
             return;
         }
 
-        if (!connectedOnce)
-        {
-            var consent = MessageBox.Show(
-                "Durante esta evaluación la aplicación mantiene un búfer temporal de la pantalla y conserva únicamente clips alrededor de eventos relevantes (por ejemplo, cambiar a otra aplicación).\n\n" +
-                "Configuración: 30 s antes + 30 s después, 2 imágenes por segundo, sin audio. Los clips se guardan temporalmente en el equipo mientras se envían a Drive y se eliminan automáticamente cuando Drive confirma la recepción. Si una subida falla, el clip se conserva temporalmente y se reintenta para evitar perderlo. Ningún evento implica una sanción automática.\n\n" +
-                "¿Continuar e ingresar a la evaluación?",
-                "Información de supervisión",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Information);
-            if (consent != DialogResult.OK) return;
-        }
-
         connectButton.Enabled = false;
         sessionBox.ReadOnly = true;
         nameBox.ReadOnly = true;
@@ -214,8 +193,6 @@ public sealed class MainForm : Form
             await SendPresenceAsync(true);
             syncTimer.Start();
             uploadRetryTimer.Start();
-            DiscoverLocalClips();
-            _ = RetryPendingUploadsAsync();
             identityLabel.Text = $"{studentName}  ·  Documento {studentId}  ·  Sesión {session}";
             entryBar.Visible = false;
             connectedBar.Visible = true;
@@ -274,7 +251,6 @@ public sealed class MainForm : Form
             var uploaded = await clipUploader.UploadAsync(session, studentId, result);
             if (uploaded.Ok)
             {
-                DeleteLocalClip(result.FilePath);
                 pendingUploads.Remove(result.FilePath);
                 var detail = $"Clip de pantalla disponible para revisión · {result.Reason}";
                 await SendAppEventAsync("clip_drive_disponible", "info", detail, uploaded.WebViewLink, uploaded.FileId);
@@ -304,69 +280,6 @@ public sealed class MainForm : Form
         {
             retryingUploads = false;
         }
-    }
-
-    private void DiscoverLocalClips()
-    {
-        if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(studentId)) return;
-        try
-        {
-            var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "MonitorEvaluacionesUTEC", "Clips", session, studentId);
-            if (!Directory.Exists(root)) return;
-
-            foreach (var file in Directory.EnumerateFiles(root, "*.avi", SearchOption.TopDirectoryOnly))
-            {
-                if (pendingUploads.ContainsKey(file)) continue;
-                pendingUploads[file] = RecoverClip(file);
-            }
-        }
-        catch { }
-    }
-
-    private static ClipResult RecoverClip(string file)
-    {
-        var triggeredAt = new DateTimeOffset(File.GetCreationTime(file));
-        var reason = "evento_pendiente";
-        var detail = "Clip local pendiente de una ejecución anterior.";
-        var manifest = Path.ChangeExtension(file, ".json");
-
-        try
-        {
-            if (File.Exists(manifest))
-            {
-                using var doc = JsonDocument.Parse(File.ReadAllText(manifest));
-                var root = doc.RootElement;
-                if (root.TryGetProperty("triggeredAt", out var timeElement) &&
-                    DateTimeOffset.TryParse(timeElement.GetString(), out var parsed))
-                    triggeredAt = parsed;
-                if (root.TryGetProperty("reasons", out var reasonsElement) && reasonsElement.ValueKind == JsonValueKind.Array)
-                {
-                    var reasons = reasonsElement.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
-                    if (reasons.Count > 0) reason = string.Join(", ", reasons!);
-                }
-                if (root.TryGetProperty("detail", out var detailElement))
-                    detail = detailElement.GetString() ?? detail;
-            }
-        }
-        catch { }
-
-        return new ClipResult(file, triggeredAt, reason, detail);
-    }
-
-    private static void DeleteLocalClip(string videoPath)
-    {
-        TryDelete(videoPath);
-        TryDelete(Path.ChangeExtension(videoPath, ".json"));
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
-        catch { }
     }
 
     private async Task SendAppEventAsync(string type, string level, string detail, string clipUrl = "", string clipFileId = "")
@@ -436,11 +349,8 @@ public sealed class MainForm : Form
                     unlockedUntil = null;
                     uploadRetryTimer.Stop();
                     await recorder.StopAsync();
-                    DiscoverLocalClips();
-                    var pendingNote = pendingUploads.Count > 0
-                        ? $"<p><b>Atención:</b> quedaron {pendingUploads.Count} clip(s) pendientes de envío. Se conservarán temporalmente en el equipo para evitar perderlos.</p>"
-                        : "";
-                    ShowMessage("<h2>Sesión cerrada</h2><p>El docente cerró esta sesión.</p><p>Mantené la ventana abierta hasta recibir indicaciones.</p>" + pendingNote, true);
+                    await RetryPendingUploadsAsync();
+                    ShowMessage("<h2>Sesión cerrada</h2><p>El docente cerró esta sesión.</p><p>Mantené la ventana abierta hasta recibir indicaciones.</p>", true);
                 }
                 if (showErrors)
                     MessageBox.Show("Esta sesión no está abierta.", "Monitor UTEC", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -503,12 +413,8 @@ public sealed class MainForm : Form
                 unlockedUntil = null;
                 uploadRetryTimer.Stop();
                 await recorder.StopAsync();
-                DiscoverLocalClips();
                 await RetryPendingUploadsAsync();
-                var pendingNote = pendingUploads.Count > 0
-                    ? $"<p><b>Atención:</b> quedaron {pendingUploads.Count} clip(s) pendientes de envío. Se conservarán temporalmente en el equipo para evitar perderlos.</p>"
-                    : "";
-                ShowMessage("<h2>Evaluación finalizada</h2><p>El docente finalizó esta sesión.</p><p>Mantené esta ventana abierta hasta recibir indicaciones.</p>" + pendingNote, true);
+                ShowMessage("<h2>Evaluación finalizada</h2><p>El docente finalizó esta sesión.</p><p>Mantené esta ventana abierta hasta recibir indicaciones.</p>", true);
                 break;
         }
         await SendPresenceAsync(true); UpdateStatus();
