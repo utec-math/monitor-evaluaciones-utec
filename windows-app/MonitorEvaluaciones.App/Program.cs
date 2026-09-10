@@ -14,6 +14,7 @@ internal static class Program
         {
             CenteredLoginLayout.Apply(form);
             ConnectedHeaderStyle.Apply(form);
+            PreCloseExperience.Apply(form);
         }
         catch
         {
