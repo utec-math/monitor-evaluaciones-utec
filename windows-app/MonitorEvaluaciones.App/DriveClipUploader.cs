@@ -64,7 +64,12 @@ public sealed class DriveClipUploader
                     var result = JsonSerializer.Deserialize<ReceiverResponse>(text,
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (result?.Ok == true && !string.IsNullOrWhiteSpace(result.WebViewLink))
+                    {
+                        // Una vez que Drive confirma que el clip existe, ya no hay razón
+                        // para conservar una copia permanente en la PC del estudiante.
+                        DeleteLocalClip(clip.FilePath);
                         return new ClipUploadResult(true, result.FileId ?? "", result.WebViewLink, "");
+                    }
 
                     lastError = result?.Error ?? "El receptor no devolvió un enlace de Drive.";
                     break;
@@ -79,7 +84,28 @@ public sealed class DriveClipUploader
                 await Task.Delay(TimeSpan.FromSeconds(attempt == 1 ? 2 : 5));
         }
 
+        // Si la subida no pudo confirmarse, el clip queda temporalmente en disco.
+        // Es preferible conservarlo a perder evidencia por una caída momentánea de red.
         return new ClipUploadResult(false, "", "", lastError);
+    }
+
+    private static void DeleteLocalClip(string videoPath)
+    {
+        TryDelete(videoPath);
+        TryDelete(Path.ChangeExtension(videoPath, ".json"));
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch
+        {
+            // La subida ya fue confirmada. Si Windows mantiene el archivo bloqueado
+            // por unos instantes, no se interrumpe el examen por un fallo de limpieza.
+        }
     }
 
     private async Task<string> ResolveReceiverUrlAsync()
