@@ -1,0 +1,21 @@
+MONITOR DE EVALUACIONES UTEC
+Información breve para estudiantes
+
+¿Qué hace el programa?
+- Permite realizar la evaluación dentro de un entorno controlado.
+- La navegación queda limitada a las páginas habilitadas por el docente.
+- Registra eventos relevantes, por ejemplo cambios de aplicación, reconexiones o pérdida de foco.
+- Ante esos eventos puede conservar un clip de pantalla de 30 segundos antes y 30 segundos después, a 2 imágenes por segundo y sin audio.
+- Los clips se envían al Drive del docente para revisión humana. Un evento no implica por sí solo una infracción ni una sanción automática.
+
+Archivos en tu computadora
+Los clips también quedan guardados en:
+Documentos\MonitorEvaluacionesUTEC\Clips
+
+No se eliminan automáticamente. Una vez terminada la evaluación podés borrar esa carpeta si ya no la necesitás. Si durante la prueba hubo problemas de conexión y el docente te pide conservar los archivos, mantenelos hasta que se resuelva la incidencia.
+
+Antes de la evaluación
+Descargá y descomprimí el archivo con anticipación. Ejecutá MonitorEvaluaciones.App.exe desde la carpeta descomprimida y verificá que tu conexión a Internet funcione correctamente.
+
+Durante la evaluación
+Usá el programa normalmente y seguí las indicaciones del docente. Si aparece un mensaje de conexión o acceso bloqueado, avisá al docente.
