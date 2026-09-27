@@ -59,19 +59,29 @@ export function createMobilePanel({ app, db, auth, container, beep, soundEnabled
       const client = clients[this.studentUid];
       this.name.textContent = `Cámara móvil · ${client?.name || this.studentUid}`;
       const token = data.links?.[this.studentUid]?.token || '';
-      if (token !== this.token) { this.disconnect('pair_replaced'); this.token = token; this.qr.replaceChildren(); }
+      if (token !== this.token) { this.disconnect('pair_replaced'); this.token = token; this.qr.replaceChildren(); delete this.qr.dataset.token; }
       const pair = data.pairs?.[this.token], status = data.status?.[this.token];
+      if (this.qrInfo?.token === this.token && this.qr.dataset.token !== this.token) this.renderQr();
+      if (pair?.claimedBy) this.qr.replaceChildren(element('p', 'mobile-note', 'Celular vinculado.'));
+      else if (pair && pair.inviteExpiresAt <= now()) this.qr.replaceChildren(element('p', 'mobile-note', 'El QR venció. Generá uno nuevo.'));
       this.status = status;
       const ended = !active || !client || client.state === 'finished' || pair?.revoked || (pair && pair.expiresAt <= now());
       if (ended) this.disconnect('evaluation_finished');
-      const state = ended ? { level: 'pending', text: 'Cámara finalizada' } : mobileState(status, now(), this.live);
+      const supervisionLive = this.live || this.graceUntil > now();
+      const state = ended ? { level: 'pending', text: 'Cámara finalizada' } : mobileState(status, now(), supervisionLive);
       if (!dbOnline) { state.level = 'warning'; state.text = 'Tu panel está sin conexión'; }
       this.state.textContent = this.recorder.state !== 'idle' ? '● Grabando cámara móvil' : state.text;
       this.state.dataset.level = state.level;
       this.recording.hidden = this.recorder.state === 'idle';
       const lease = data.rtc?.[this.token]?.viewer;
-      if (this.peer && (lease?.id !== this.id || lease.expiresAt <= now())) this.disconnect('viewer_lease_lost');
-      if (this.recorder.state === 'recording' && (state.level !== 'ok' || status?.recordingAck !== this.clipId)) this.stop('supervision_interrupted');
+      if (this.peer && ((lease?.id && lease.id !== this.id && lease.expiresAt > now()) || this.leaseExpiresAt <= now())) this.disconnect('viewer_lease_lost');
+      if (this.recorder.state === 'recording') {
+        if (status?.recordingAck === this.clipId) this.lastAckAt = now();
+        // Heartbeats can arrive out of order. Give the mobile page a short grace
+        // period before finalizing a clip, while still closing it on a real loss.
+        const ackExpired = !this.lastAckAt || now() - this.lastAckAt > 5000;
+        if (state.level !== 'ok' || ackExpired) this.stop('supervision_interrupted');
+      }
       if (this.warning !== state.text && state.level === 'warning' && status && dbOnline) {
         if (soundEnabled()) beep();
         if (state.text.includes('sin señal')) this.log('connection_lost');
@@ -79,7 +89,7 @@ export function createMobilePanel({ app, db, auth, container, beep, soundEnabled
       this.warning = state.text;
       this.pairButton.disabled = ended || this.busy || !!this.pairing;
       this.viewButton.disabled = ended || !pair?.claimedBy || !!this.peer || !!this.connecting || !dbOnline;
-      this.startButton.disabled = ended || state.level !== 'ok' || this.busy || !dbOnline;
+      this.startButton.disabled = ended || state.level !== 'ok' || this.busy || !dbOnline || !(this.stream || this.video.srcObject);
       this.stopButton.disabled = this.recorder.state !== 'recording' && !this.starting;
       this.closeButton.disabled = !this.peer && !this.connecting;
       const eventList = Object.values(data.events?.[this.token] || {}).sort((a, b) => b.ts - a.ts).slice(0, 8);
@@ -93,13 +103,20 @@ export function createMobilePanel({ app, db, auth, container, beep, soundEnabled
         const result = await call('createMobilePair', { session: this.session, studentUid: this.studentUid });
         if (this.session !== session) return;
         const url = new URL('celular.html', location.href); url.hash = new URLSearchParams({ session: this.session, token: result.token });
-        this.qr.replaceChildren();
-        new window.QRCode(this.qr, { text: url.href, width: 220, height: 220, correctLevel: window.QRCode.CorrectLevel.M });
-        const copy = button('Copiar enlace individual', async () => { try { await navigator.clipboard.writeText(url.href); this.say('Enlace copiado. Compartilo solo con este estudiante.'); } catch { this.say(url.href); } });
-        this.qr.append(copy);
+        this.qrInfo = { token: result.token, url: url.href };
+        this.renderQr();
         this.say('QR válido por 5 minutos y para un solo teléfono. También aparece al pulsar «Vincular celular» en la app Windows actualizada.');
       } catch (error) { this.say(error.message || 'No se pudo crear el QR. Verificá el despliegue de la función móvil.'); }
       finally { this.pairing = false; this.refresh(); }
+    }
+    renderQr() {
+      const { token, url } = this.qrInfo;
+      this.qr.replaceChildren(); this.qr.dataset.token = token;
+      new window.QRCode(this.qr, { text: url, width: 220, height: 220, correctLevel: window.QRCode.CorrectLevel.M });
+      this.qr.append(button('Copiar enlace individual', async () => {
+        try { await navigator.clipboard.writeText(url); this.say('Enlace copiado. Compartilo solo con este estudiante.'); }
+        catch { this.say(url); }
+      }));
     }
     async view() {
       if (this.peer || this.connecting || !this.token) return;
@@ -111,6 +128,7 @@ export function createMobilePanel({ app, db, auth, container, beep, soundEnabled
           return { id, uid: auth.currentUser.uid, expiresAt: now() + 25000 };
         }, { applyLocally: false });
         if (!result.committed) throw new Error('Esta cámara está abierta en otro panel. Cerralo o esperá 25 segundos.');
+        this.leaseExpiresAt = result.snapshot.val().expiresAt;
         const { iceServers } = await call('mobileIceServers', { session: this.session, token: this.token });
         if (generation !== this.generation || this.session !== session) return;
         const off = { id: '', active: false, startedAt: 0, viewerId: id };
@@ -119,14 +137,22 @@ export function createMobilePanel({ app, db, auth, container, beep, soundEnabled
         this.peer = new VideoPeer({ db, path: rtc, id, iceServers, role: 'teacher',
           onStream: stream => { this.video.srcObject = stream; this.stream = stream; this.video.play().catch(() => this.say('Pulsá el video para reproducirlo.')); },
           onState: state => {
-            this.live = state === 'connected';
-            if (['disconnected', 'failed', 'closed'].includes(state)) { this.stop('video_interrupted'); this.say('Video interrumpido. Cerrá el video y pulsá «Ver cámara» para reconectar.'); }
+            if (state === 'connected') { this.live = true; this.graceUntil = 0; clearTimeout(this.connectionTimer); }
+            else if (state === 'disconnected') {
+              this.graceUntil = now() + 5000;
+              clearTimeout(this.connectionTimer);
+              this.connectionTimer = setTimeout(() => {
+                if (this.peer && this.graceUntil <= now()) { this.live = false; this.stop('video_interrupted'); this.say('Video interrumpido. Cerrá el video y pulsá «Ver cámara» para reconectar.'); this.refresh(); }
+              }, 5200);
+            } else if (['failed', 'closed'].includes(state)) {
+              this.live = false; this.stop('video_interrupted'); this.say('Video interrumpido. Cerrá el video y pulsá «Ver cámara» para reconectar.');
+            }
             this.refresh();
           }, onError: error => this.say(`Conexión de video: ${error.message || 'no disponible'}`) });
         this.video.onclick = () => this.video.play().catch(() => {});
         await this.peer.offer();
         this.leaseTimer = setInterval(async () => {
-          try { await set(ref(db, `${rtc}/viewer`), { id, uid: auth.currentUser.uid, expiresAt: now() + 25000 }); }
+          try { const expiresAt = now() + 25000; await set(ref(db, `${rtc}/viewer`), { id, uid: auth.currentUser.uid, expiresAt }); this.leaseExpiresAt = expiresAt; }
           catch { this.disconnect('lease_error'); }
         }, 5000);
         this.say('Conectando cámara. La transmisión no se graba hasta pulsar «Grabar».');
@@ -147,7 +173,9 @@ export function createMobilePanel({ app, db, auth, container, beep, soundEnabled
         const startedAt = now();
         await set(ref(db, `${this.path}/recordings/${token}/${id}`), { teacherUid: auth.currentUser.uid, startedAt, acknowledgedAt: serverTimestamp() });
         if (this.cancelStart || !this.live) throw new Error('Grabación cancelada antes de comenzar.');
-        this.recorder.start(this.stream, { id, token, session: this.session, studentUid: this.studentUid, startedAt });
+        const captureStream = this.video.srcObject || this.stream || this.video.captureStream?.();
+        this.recorder.start(captureStream, { id, token, session: this.session, studentUid: this.studentUid, startedAt });
+        this.lastAckAt = now();
         await this.log('recording_started');
         this.say('Grabando desde ahora. Pulsá «Detener grabación» para guardar. Límite por clip: 15 min o aproximadamente 20 MB.');
       } catch (error) {
