@@ -18,6 +18,7 @@ public sealed class MainForm : Form
     private readonly TextBox nameBox = new() { Width = 190 };
     private readonly TextBox studentBox = new() { Width = 135 };
     private readonly Button connectButton = new() { Text = "Entrar a la evaluación", AutoSize = true };
+    private readonly Button mobileButton = new() { Text = "Vincular celular", AutoSize = true };
     private readonly Button homeButton = new() { Text = "Inicio", AutoSize = true };
     private readonly Label statusLabel = new() { AutoSize = true, Text = "● DESCONECTADO", Padding = new Padding(8, 7, 8, 0), Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.Firebrick };
     private readonly Label identityLabel = new() { AutoSize = true, Padding = new Padding(8, 8, 8, 0), ForeColor = Color.FromArgb(55, 78, 86) };
@@ -70,6 +71,7 @@ public sealed class MainForm : Form
         connectedBar.Controls.Add(statusLabel);
         connectedBar.Controls.Add(identityLabel);
         connectedBar.Controls.Add(homeButton);
+        connectedBar.Controls.Add(mobileButton);
 
         Controls.Add(browser);
         Controls.Add(connectedBar);
@@ -80,6 +82,7 @@ public sealed class MainForm : Form
 
         connectButton.Click += async (_, _) => await ConnectAsync();
         homeButton.Click += (_, _) => NavigateHome();
+        mobileButton.Click += async (_, _) => await ShowMobilePairAsync();
         syncTimer.Tick += async (_, _) => await SyncAsync();
         Deactivate += async (_, _) => await OnAppDeactivatedAsync();
 
@@ -211,6 +214,35 @@ public sealed class MainForm : Form
             nameBox.ReadOnly = false;
             studentBox.ReadOnly = false;
         }
+    }
+
+    private async Task ShowMobilePairAsync()
+    {
+        if (!connectedOnce || finished || !await firebaseAuth.EnsureSignedInAsync()) return;
+        mobileButton.Enabled = false;
+        try
+        {
+            var path = $"{FirebaseBase}/mobileSessions/{Uri.EscapeDataString(session)}/links/{Uri.EscapeDataString(firebaseAuth.LocalId)}.json?auth={Uri.EscapeDataString(firebaseAuth.IdToken)}";
+            using var response = await http.GetAsync(path);
+            response.EnsureSuccessStatusCode();
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            if (json.RootElement.ValueKind != JsonValueKind.Object ||
+                !json.RootElement.TryGetProperty("token", out var token) ||
+                !json.RootElement.TryGetProperty("inviteExpiresAt", out var expires) ||
+                expires.GetInt64() <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            {
+                MessageBox.Show("Pedile al docente que genere tu QR desde el panel. El QR vence a los 5 minutos.", "Cámara móvil");
+                return;
+            }
+            var url = DefaultHome + "vincular-celular.html#session=" + Uri.EscapeDataString(session) + "&token=" + Uri.EscapeDataString(token.GetString() ?? "");
+            using var dialog = new MobilePairForm(url);
+            dialog.ShowDialog(this);
+        }
+        catch
+        {
+            MessageBox.Show("La cámara móvil aún no está habilitada o no hay conexión. Podés continuar con la evaluación habitual.", "Cámara móvil");
+        }
+        finally { mobileButton.Enabled = true; }
     }
 
     private async Task OnAppDeactivatedAsync()
@@ -552,3 +584,4 @@ public sealed class SessionConfig
 
 public sealed class AllowedSite { public string Url { get; set; } = ""; public string Scope { get; set; } = "exact"; }
 public sealed class RemoteCommand { public string Id { get; set; } = ""; public string Action { get; set; } = ""; public long IssuedAt { get; set; } public long ExpiresAt { get; set; } public int DurationSec { get; set; } }
+

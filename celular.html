@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Cámara móvil · Monitor UTEC</title><link rel="stylesheet" href="mobile/mobile.css"></head>
+<body class="mobile-page"><main class="mobile-shell">
+<p class="mobile-kicker">UTEC · Monitor de Evaluaciones</p><h1>Cámara del celular</h1>
+<p id="mobileIdentity">Preparando vínculo…</p>
+<p id="mobileStatus" role="status" aria-live="polite">Escaneá el QR individual desde la aplicación de evaluación.</p>
+<div id="recordingNotice" class="mobile-recording" hidden role="alert">● El docente está grabando este video.</div>
+<video id="preview" autoplay muted playsinline aria-label="Vista previa de tu cámara"></video>
+<section id="mobileConsent"><p>Tu docente verá esta cámara en directo. <strong>No se graba automáticamente ni se captura audio.</strong> El docente puede iniciar y detener un clip manualmente; esta página te lo indicará.</p>
+<p>Los clips se guardan con acceso docente restringido por 24 horas. Los registros técnicos también vencen a las 24 horas; la limpieza del servidor se ejecuta cada hora. Se registran conexión, visibilidad y estado de la cámara. No se analiza la imagen automáticamente.</p>
+<p>Colocá el celular de forma estable mostrando la mesa y las manos. Mantené esta página visible y el teléfono conectado al cargador.</p>
+<label><input id="consent" type="checkbox"> Leí la información sobre la cámara y la grabación manual.</label>
+<label>Cámara <select id="facing"><option value="environment">Trasera</option><option value="user">Frontal</option></select></label>
+<button id="startCamera" disabled>Activar cámara y compartir</button></section>
+<button id="stopCamera" class="mobile-danger" hidden>Detener cámara</button>
+<p class="mobile-note">Si la conexión se interrumpe, el docente recibirá un aviso. Eso no implica por sí solo una irregularidad.</p>
+</main><script type="module" src="mobile/phone.js"></script></body></html>

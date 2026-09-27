@@ -1,6 +1,8 @@
 name: Build Windows exam app
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
   push:
     paths:
@@ -31,3 +33,4 @@ jobs:
           name: MonitorEvaluacionesUTEC-win-x64
           path: .\artifacts\MonitorEvaluacionesUTEC\
           if-no-files-found: error
+
