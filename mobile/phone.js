@@ -37,7 +37,6 @@ async function event(type) {
 function showRecording() {
   const active = started && firebaseOnline && viewer?.expiresAt > now() && recordingCommand?.active &&
     recordingCommand.viewerId === viewer.id && cameraActive && document.visibilityState === 'visible';
-  $('recordingNotice').hidden = !active;
   recordingAck = active ? recordingCommand.id : '';
 }
 async function presence() {
@@ -56,7 +55,7 @@ async function stop(message = 'Cámara detenida. Podés volver a activarla si la
   stream?.getTracks().forEach(track => track.stop()); stream = null; cameraActive = false;
   cleanups.splice(0).forEach(fn => fn());
   wakeLock?.release().catch(() => {});
-  $('preview').srcObject = null; $('recordingNotice').hidden = true;
+  $('preview').srcObject = null;
   $('mobileConsent').hidden = false; $('stopCamera').hidden = true;
   $('startCamera').disabled = !$('consent').checked;
   say(message);
