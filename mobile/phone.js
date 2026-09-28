@@ -60,7 +60,10 @@ async function stop(message = 'Cámara detenida. Podés volver a activarla si la
   $('mobileConsent').hidden = false; $('stopCamera').hidden = true;
   $('startCamera').disabled = !$('consent').checked;
   say(message);
-  if (firebaseOnline) update(ref(db, statusPath), { connected: false, camera: false, recordingAck: '', lastSeen: serverTimestamp() }).catch(() => {});
+  if (firebaseOnline) set(ref(db, statusPath), {
+    connected: false, lastSeen: serverTimestamp(), visible: document.visibilityState === 'visible',
+    focused: document.hasFocus(), camera: false, recordingAck: ''
+  }).catch(() => {});
 }
 
 async function acceptOffer(offer) {
@@ -108,7 +111,12 @@ async function start() {
       showRecording();
       if (firebaseOnline && started) {
         try {
-          await onDisconnect(ref(db, statusPath)).update({ connected: false, camera: false, recordingAck: '', lastSeen: serverTimestamp() });
+          // Registration is validated even before the first heartbeat. Include
+          // every required status field so a newly paired phone is accepted.
+          await onDisconnect(ref(db, statusPath)).update({
+            connected: false, lastSeen: serverTimestamp(), visible: false,
+            focused: false, camera: false, recordingAck: ''
+          });
           if (!started) return;
           await presence(); await event('connected');
         } catch { stop('No se pudo registrar la conexión.'); }
@@ -135,3 +143,4 @@ try {
   $('mobileIdentity').textContent = `Sesión ${session}`;
   say('Leé la información y activá la cámara para vincular el teléfono.');
 } catch (error) { say(error.message || 'No se pudo preparar la conexión.'); $('mobileConsent').hidden = true; }
+
