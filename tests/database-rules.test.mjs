@@ -53,12 +53,14 @@ try {
     version: '0.9',
     state: 'locked',
     currentUrl: 'https://example.edu/evaluacion',
-    eventCapture: true
+    eventCapture: true,
+    cameraPc: false
   };
 
   await assertFails(set(ref(anonymousDb, `sessions/${session}/clients/${studentUid}`), client));
   await assertFails(set(ref(otherDb, `sessions/${session}/clients/${studentUid}`), { ...client, uid: otherUid }));
   await assertSucceeds(set(ref(studentDb, `sessions/${session}/clients/${studentUid}`), client));
+  await assertFails(update(ref(studentDb, `sessions/${session}/clients/${studentUid}`), { cameraPc: 'unknown' }));
   await assertSucceeds(get(ref(studentDb, `sessions/${session}/config`)));
   await assertFails(get(ref(otherDb, `sessions/${session}/clients/${studentUid}`)));
   await assertFails(get(ref(studentDb, `sessions/${session}`)));
@@ -93,3 +95,5 @@ try {
 } finally {
   await env.cleanup();
 }
+
+

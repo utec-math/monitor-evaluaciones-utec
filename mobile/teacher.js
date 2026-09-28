@@ -271,6 +271,13 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
   });
   window.addEventListener('pagehide', () => cards.forEach(c => c.disconnect('panel_closed')));
   return {
+    getStatus(studentUid) {
+      const card = cards.get(studentUid);
+      if (!card) return null;
+      const status = card.status;
+      const connected = !!status && status.connected === true && now() - Number(status.lastSeen || 0) < STALE_MS;
+      return { connected, live: card.live === true };
+    },
     canLeave() {
       if (![...cards.values()].some(c => c.busy)) return true;
       report('Detené las grabaciones y descargá o descartá los clips pendientes antes de cambiar de sesión o salir.');

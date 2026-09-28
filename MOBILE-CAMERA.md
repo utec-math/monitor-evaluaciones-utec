@@ -1,6 +1,6 @@
 # Cámara móvil opcional — piloto sin facturación
 
-La evaluación habitual conserva la aplicación Windows, la vista docente, sus comandos y los clips de pantalla existentes. Esta versión añade una cámara móvil opcional por estudiante, que el docente ve en miniatura y puede ampliar. No analiza imágenes, no captura audio y no graba hasta que el docente pulsa **Grabar**. El estudiante acepta antes de compartir la cámara que el docente puede grabar fragmentos durante la evaluación sin avisos adicionales en el celular.
+La evaluación habitual conserva la aplicación Windows, la vista docente, sus comandos y los clips de pantalla existentes. Esta versión añade una cámara móvil opcional por estudiante, que el docente ve en miniatura y puede ampliar. El panel muestra por separado el estado de pantalla, cámara de PC detectada y cámara del celular. La versión actual detecta si Windows ve una cámara de PC, pero todavía no transmite esa imagen al panel. No analiza imágenes, no captura audio y no graba hasta que el docente pulsa **Grabar**. El estudiante acepta antes de compartir la cámara que el docente puede grabar fragmentos durante la evaluación sin avisos adicionales en el celular.
 
 ## Qué utiliza
 
@@ -38,3 +38,4 @@ Las pruebas de código se ejecutan con `npm run test:mobile` y `npm run test:rul
 ## Recuperación
 
 La versión estable está en `07d5d76a804e1c7111dd2eaba74ecd198d84ca5d` y en `backup/pre-mobile-camera-2026-09-27`. El ZIP estable de Drive y la release v0.9.0 no se modificaron. El código móvil se incorporó mediante el [PR 3](https://github.com/utec-math/monitor-evaluaciones-utec/pull/3). Para volver a la versión anterior, se recuperan las páginas y reglas desde la rama de respaldo, sin restaurar una copia antigua sobre los datos actuales de RTDB.
+

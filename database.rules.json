@@ -96,6 +96,9 @@
             "eventCapture": {
               ".validate": "newData.isBoolean()"
             },
+            "cameraPc": {
+              ".validate": "newData.isBoolean()"
+            },
             "$other": {
               ".validate": false
             }
@@ -342,3 +345,4 @@
     }
   }
 }
+
