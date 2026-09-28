@@ -78,15 +78,21 @@ const server = http.createServer(async(req,res)=>{
     await teacher.waitForFunction(()=>document.querySelector('.mobile-state')?.textContent.includes('Cámara en directo'),{},{timeout:15000});
     console.log('Real WebRTC connected');
     await teacher.waitForFunction(()=>{const s=document.querySelector('.mobile-panel video')?.srcObject;return !!s?.getVideoTracks?.().some(t=>t.readyState==='live');},{timeout:10000});
+    const miniWidth=await teacher.locator('.mobile-panel').evaluate(el=>el.getBoundingClientRect().width);
+    assert.ok(miniWidth<=220,'the default teacher camera card must stay a thumbnail');
+    await teacher.getByRole('button',{name:'Ampliar imagen'}).click();
+    assert.ok((await teacher.locator('.mobile-panel').evaluate(el=>el.getBoundingClientRect().width))>miniWidth,'the teacher can enlarge the live card');
+    await teacher.getByRole('button',{name:'Reducir imagen'}).click();
+    assert.ok((await teacher.locator('.mobile-panel').evaluate(el=>el.getBoundingClientRect().width))<=220,'the card returns to thumbnail size');
     // Keep the recording assertion deterministic: the preceding step verifies
     // the real mobile->teacher WebRTC path; this local camera track supplies
     // stable frames for MediaRecorder while the same teacher controls remain active.
     await teacher.evaluate(async()=>{const video=document.querySelector('.mobile-panel video');const canvas=document.createElement('canvas');canvas.width=640;canvas.height=480;const ctx=canvas.getContext('2d');let n=0;window.testFrames=setInterval(()=>{ctx.fillStyle=n++%2?'#067':'#a30';ctx.fillRect(0,0,640,480);},100);video.srcObject=canvas.captureStream(10);await video.play();});
     assert.equal(await teacher.locator('.mobile-clip').count(),0,'watching must not create a clip');
-    assert.equal(await phone.locator('#recordingNotice').isVisible(),false);
+    assert.equal(await phone.locator('#recordingNotice').count(),0,'there is no recording-start alert on the phone');
     await teacher.getByRole('button',{name:'Grabar',exact:true}).click().catch(async e=>{console.log('Record disabled:',await teacher.locator('.mobile-state').textContent(),'message:',await teacher.locator('.mobile-message').textContent(),'status:',read('mobileSessions/TEST/status/pair-test'));throw e;});
-    await phone.waitForSelector('#recordingNotice:not([hidden])',{timeout:8000}).catch(async e=>{console.log('Phone:',await phone.locator('#mobileStatus').textContent(),'noticeHidden:',await phone.locator('#recordingNotice').getAttribute('hidden'),'phoneStatus:',read('mobileSessions/TEST/status/'+token),'recording:',read('mobileSessions/TEST/rtc/'+token+'/recording'),'viewer:',read('mobileSessions/TEST/rtc/'+token+'/viewer'));throw e;});
     await teacher.waitForSelector('.mobile-recording:not([hidden])').catch(async e=>{console.log('Teacher:',await teacher.locator('.mobile-message').textContent(),'status:',read('mobileSessions/TEST/status/'+token));throw e;});
+    assert.equal(await phone.locator('#recordingNotice').count(),0,'recording does not add an alert on the phone');
     await new Promise(r=>setTimeout(r,1500));
     await teacher.getByRole('button',{name:'Detener grabación',exact:true}).click();
     await teacher.getByRole('button',{name:'Descargar clip'}).waitFor({timeout:8000});
@@ -94,10 +100,10 @@ const server = http.createServer(async(req,res)=>{
     await teacher.getByRole('button',{name:'Descargar clip'}).click();
     const downloaded=await downloadEvent;
     assert.ok(fs.statSync(await downloaded.path()).size>0,'teacher download must contain video data');
-    await phone.waitForSelector('#recordingNotice[hidden]', { state: 'attached' });
     write('sessions/TEST/config/active',false);await teacher.evaluate(()=>window.closeEvaluation());
     await phone.waitForSelector('#stopCamera[hidden]', { state: 'attached' });
     assert.deepEqual(errors,[]);
-    console.log('PASS browser: QR persistence, real WebRTC, no automatic capture, recording indicator, manual local download and session close.');
+    console.log('PASS browser: QR persistence, real WebRTC, resizable thumbnails, no automatic capture, quiet phone, manual local download and session close.');
   } finally {await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
+
