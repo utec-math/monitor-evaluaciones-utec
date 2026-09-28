@@ -1,4 +1,4 @@
-import { initializeApp, getAuth, signInAnonymously, setPersistence, browserSessionPersistence, getDatabase, ref, get, set, update, onValue, onDisconnect, serverTimestamp } from './firebase.js';
+import { initializeApp, getAuth, signInAnonymously, setPersistence, browserSessionPersistence, getDatabase, ref, get, set, onValue, serverTimestamp } from './firebase.js';
 import { firebaseConfig } from '../firebase-config.js';
 import { mobileConfig } from '../mobile-config.js';
 import { validKey, MAX_EVENTS } from './core.js';
@@ -60,7 +60,10 @@ async function stop(message = 'Cámara detenida. Podés volver a activarla si la
   $('mobileConsent').hidden = false; $('stopCamera').hidden = true;
   $('startCamera').disabled = !$('consent').checked;
   say(message);
-  if (firebaseOnline) update(ref(db, statusPath), { connected: false, camera: false, recordingAck: '', lastSeen: serverTimestamp() }).catch(() => {});
+  if (firebaseOnline) set(ref(db, statusPath), {
+    connected: false, lastSeen: serverTimestamp(), visible: document.visibilityState === 'visible',
+    focused: document.hasFocus(), camera: false, recordingAck: ''
+  }).catch(() => {});
 }
 
 async function acceptOffer(offer) {
@@ -107,11 +110,10 @@ async function start() {
       firebaseOnline = snap.val() === true;
       showRecording();
       if (firebaseOnline && started) {
-        try {
-          await onDisconnect(ref(db, statusPath)).update({ connected: false, camera: false, recordingAck: '', lastSeen: serverTimestamp() });
-          if (!started) return;
-          await presence(); await event('connected');
-        } catch { stop('No se pudo registrar la conexión.'); }
+        // A missed heartbeat is visible to the teacher after 20 seconds.
+        // Do not block the camera on a separate disconnect registration.
+        await presence();
+        if (started) await event('connected');
       } else if (started) say('Sin conexión con el monitor. Intentando reconectar…');
     }));
     timer = setInterval(() => { if (now() >= identity.expiresAt) stop('El vínculo venció.'); else presence(); }, mobileConfig.heartbeatMs);
@@ -135,3 +137,4 @@ try {
   $('mobileIdentity').textContent = `Sesión ${session}`;
   say('Leé la información y activá la cámara para vincular el teléfono.');
 } catch (error) { say(error.message || 'No se pudo preparar la conexión.'); $('mobileConsent').hidden = true; }
+

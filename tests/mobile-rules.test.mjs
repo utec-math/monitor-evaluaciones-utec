@@ -29,6 +29,9 @@ try {
   await assertSucceeds(set(ref(newPhone, `mobileMembers/EVAL-TEST/new-phone`), { token: newToken, studentUid: 'student' }));
   await assertSucceeds(get(ref(newPhone, `${base}/pairs/${newToken}`)));
   await assertSucceeds(get(ref(newPhone, 'sessions/EVAL-TEST/clients/student/name')));
+  await assertSucceeds(set(ref(newPhone, `${base}/status/${newToken}`), {
+    connected: true, lastSeen: createdAt, visible: true, focused: true, camera: true, recordingAck: ''
+  }));
   await assertFails(set(ref(other, `${base}/pairs/${newToken}/claimedBy`), 'other'));
   await assertSucceeds(get(ref(pc, `${base}/links/student`)));
   await assertFails(get(ref(other, `${base}/links/student`)));
@@ -67,3 +70,4 @@ try {
   await assertFails(set(ref(phone, `${base}/rtc/token/answer`), { id: 'v1', sdp: 'test-answer' }));
   console.log('Mobile isolation, recording authority, lease, revocation and session closure tests passed.');
 } finally { await env.cleanup(); }
+
