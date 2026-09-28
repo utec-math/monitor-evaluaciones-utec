@@ -16,24 +16,47 @@
           ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('sessions').child($session).child('clients').child(auth.uid).child('uid').val() === auth.uid)",
           ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
           ".validate": "newData.hasChildren(['homeUrl','active'])",
-          "homeUrl": { ".validate": "newData.isString() && newData.val().length <= 2048" },
-          "active": { ".validate": "newData.isBoolean()" },
-          "createdAt": { ".validate": "newData.isNumber()" },
-          "updatedAt": { ".validate": "newData.isNumber()" },
+          "homeUrl": {
+            ".validate": "newData.isString() && newData.val().length <= 2048"
+          },
+          "active": {
+            ".validate": "newData.isBoolean()",
+            ".read": "auth != null && root.child('mobileMembers').child($session).child(auth.uid).exists() && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('expiresAt').val() > now"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "updatedAt": {
+            ".validate": "newData.isNumber()"
+          },
           "allowedSites": {},
-          "$other": { ".validate": false }
+          "$other": {
+            ".validate": false
+          }
         },
         "commands": {
           "$uid": {
             ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.uid === $uid)",
             ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
             ".validate": "newData.hasChildren(['id','action','issuedAt','expiresAt','durationSec'])",
-            "id": { ".validate": "newData.isString() && newData.val().length <= 80" },
-            "action": { ".validate": "newData.isString() && (newData.val() === 'home' || newData.val() === 'reload' || newData.val() === 'recover' || newData.val() === 'unlock' || newData.val() === 'lock' || newData.val() === 'finish')" },
-            "issuedAt": { ".validate": "newData.isNumber()" },
-            "expiresAt": { ".validate": "newData.isNumber()" },
-            "durationSec": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1800" },
-            "$other": { ".validate": false }
+            "id": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
+            },
+            "action": {
+              ".validate": "newData.isString() && (newData.val() === 'home' || newData.val() === 'reload' || newData.val() === 'recover' || newData.val() === 'unlock' || newData.val() === 'lock' || newData.val() === 'finish')"
+            },
+            "issuedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "expiresAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "durationSec": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1800"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         },
         "clients": {
@@ -41,17 +64,41 @@
             ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.uid === $uid)",
             ".write": "auth != null && auth.uid === $uid && newData.child('uid').val() === auth.uid && (!data.exists() || data.child('uid').val() === auth.uid) && root.child('sessions').child($session).child('config').child('active').val() === true",
             ".validate": "newData.hasChildren(['id','uid','name','lastSeen','connected','app','version','state','currentUrl','eventCapture'])",
-            "id": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80 && (!data.exists() || data.val() === newData.val())" },
-            "uid": { ".validate": "newData.isString() && newData.val() === $uid && (!data.exists() || data.val() === newData.val())" },
-            "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160" },
-            "lastSeen": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
-            "connected": { ".validate": "newData.isBoolean()" },
-            "app": { ".validate": "newData.val() === 'windows-webview2'" },
-            "version": { ".validate": "newData.isString() && newData.val().length <= 20" },
-            "state": { ".validate": "newData.val() === 'locked' || newData.val() === 'unlocked' || newData.val() === 'finished'" },
-            "currentUrl": { ".validate": "newData.isString() && newData.val().length <= 2048" },
-            "eventCapture": { ".validate": "newData.isBoolean()" },
-            "$other": { ".validate": false }
+            "id": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80 && (!data.exists() || data.val() === newData.val())"
+            },
+            "uid": {
+              ".validate": "newData.isString() && newData.val() === $uid && (!data.exists() || data.val() === newData.val())"
+            },
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160",
+              ".read": "auth != null && root.child('mobileMembers').child($session).child(auth.uid).exists() && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('expiresAt').val() > now && root.child('mobileMembers').child($session).child(auth.uid).child('studentUid').val() === $uid"
+            },
+            "lastSeen": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+            },
+            "connected": {
+              ".validate": "newData.isBoolean()"
+            },
+            "app": {
+              ".validate": "newData.val() === 'windows-webview2'"
+            },
+            "version": {
+              ".validate": "newData.isString() && newData.val().length <= 20"
+            },
+            "state": {
+              ".validate": "newData.val() === 'locked' || newData.val() === 'unlocked' || newData.val() === 'finished'",
+              ".read": "auth != null && root.child('mobileMembers').child($session).child(auth.uid).exists() && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('expiresAt').val() > now && root.child('mobileMembers').child($session).child(auth.uid).child('studentUid').val() === $uid"
+            },
+            "currentUrl": {
+              ".validate": "newData.isString() && newData.val().length <= 2048"
+            },
+            "eventCapture": {
+              ".validate": "newData.isBoolean()"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         },
         "events": {
@@ -59,23 +106,238 @@
             ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
             ".write": "auth != null && !data.exists() && root.child('sessions').child($session).child('config').child('active').val() === true && newData.child('studentUid').val() === auth.uid && root.child('sessions').child($session).child('clients').child(auth.uid).child('uid').val() === auth.uid && root.child('sessions').child($session).child('clients').child(auth.uid).child('id').val() === newData.child('studentId').val()",
             ".validate": "newData.hasChildren(['ts','studentUid','studentId','studentName','type','level','detail','clipUrl','clipFileId'])",
-            "ts": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
-            "studentUid": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160" },
-            "studentId": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
-            "studentName": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160" },
-            "type": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
-            "level": { ".validate": "newData.val() === 'info' || newData.val() === 'green' || newData.val() === 'yellow' || newData.val() === 'orange' || newData.val() === 'red'" },
-            "detail": { ".validate": "newData.isString() && newData.val().length <= 2000" },
-            "clipUrl": { ".validate": "newData.isString() && newData.val().length <= 2048" },
-            "clipFileId": { ".validate": "newData.isString() && newData.val().length <= 256" },
-            "$other": { ".validate": false }
+            "ts": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+            },
+            "studentUid": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160"
+            },
+            "studentId": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+            },
+            "studentName": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160"
+            },
+            "type": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+            },
+            "level": {
+              ".validate": "newData.val() === 'info' || newData.val() === 'green' || newData.val() === 'yellow' || newData.val() === 'orange' || newData.val() === 'red'"
+            },
+            "detail": {
+              ".validate": "newData.isString() && newData.val().length <= 2000"
+            },
+            "clipUrl": {
+              ".validate": "newData.isString() && newData.val().length <= 2048"
+            },
+            "clipFileId": {
+              ".validate": "newData.isString() && newData.val().length <= 256"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         },
         "students": {
           ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
           ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
         },
-        "$other": { ".validate": false }
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "mobileSessions": {
+      "$session": {
+        ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && !newData.exists() && root.child('sessions').child($session).child('config').child('active').val() !== true",
+        "pairs": {
+          "$token": {
+            ".read": "auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now)",
+            ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && !data.exists() && newData.child('studentUid').isString() && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(newData.child('studentUid').val()).child('uid').val() === newData.child('studentUid').val() && root.child('sessions').child($session).child('clients').child(newData.child('studentUid').val()).child('state').val() !== 'finished' && newData.child('createdAt').val() >= now - 60000 && newData.child('createdAt').val() <= now + 60000 && $token.matches(/^[a-f0-9]{48}$/)",
+            ".validate": "newData.hasChildren(['studentUid','claimedBy','revoked','createdAt','inviteExpiresAt','expiresAt']) && newData.child('inviteExpiresAt').val() === newData.child('createdAt').val() + 300000 && newData.child('expiresAt').val() === newData.child('createdAt').val() + 86400000",
+            "claimedBy": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider === 'anonymous' && newData.val() === auth.uid && (data.val() === auth.uid || (data.val() === '' && root.child('mobileSessions').child($session).child('pairs').child($token).child('inviteExpiresAt').val() > now)) && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished'",
+              ".validate": "newData.isString() && newData.val().length <= 160"
+            },
+            "revoked": {
+              ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        "links": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child($uid).child('uid').val() === $uid",
+            ".validate": "newData.hasChildren(['token','inviteExpiresAt']) && newData.child('token').isString() && newData.child('token').val().matches(/^[a-f0-9]{48}$/) && newData.child('inviteExpiresAt').isNumber() && newData.child('inviteExpiresAt').val() <= now + 360000 && newData.child('inviteExpiresAt').val() > now"
+          }
+        },
+        "status": {
+          "$token": {
+            ".read": "auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now)",
+            ".write": "auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished'",
+            ".validate": "newData.hasChildren([\"connected\",\"lastSeen\",\"visible\",\"focused\",\"camera\",\"recordingAck\"])",
+            "connected": {
+              ".validate": "newData.isBoolean()"
+            },
+            "lastSeen": {
+              ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000"
+            },
+            "visible": {
+              ".validate": "newData.isBoolean()"
+            },
+            "focused": {
+              ".validate": "newData.isBoolean()"
+            },
+            "camera": {
+              ".validate": "newData.isBoolean()"
+            },
+            "recordingAck": {
+              ".validate": "newData.isString() && newData.val().length <= 80"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "events": {
+          "$token": {
+            ".read": "auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now)",
+            "$id": {
+              ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished')) && (root.child('admins').child(auth.uid).val() === true || $id.matches(/^([1-9]|[1-9][0-9]|[1-4][0-9][0-9]|500)$/)) && !data.exists() && $id.matches(/^[A-Za-z0-9_-]{1,80}$/)",
+              ".validate": "newData.hasChildren([\"type\",\"ts\",\"source\"])",
+              "type": {
+                ".validate": "newData.val() === 'connected' || newData.val() === 'hidden' || newData.val() === 'visible' || newData.val() === 'blur' || newData.val() === 'focus' || newData.val() === 'pagehide' || newData.val() === 'camera_lost' || newData.val() === 'camera_restored' || newData.val() === 'connection_lost' || newData.val() === 'recording_started' || newData.val() === 'recording_stopped'"
+              },
+              "ts": {
+                ".validate": "newData.isNumber() && newData.val() <= now + 60000 && newData.val() >= now - 60000"
+              },
+              "source": {
+                ".validate": "(auth != null && root.child('admins').child(auth.uid).val() === true && newData.val() === 'teacher') || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && newData.val() === 'mobile')"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "rtc": {
+          "$token": {
+            ".read": "auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now)",
+            "viewer": {
+              ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished' && (!data.exists() || data.child('expiresAt').val() < now || (newData.child('id').val() === data.child('id').val() && data.child('uid').val() === auth.uid))",
+              ".validate": "newData.hasChildren([\"id\",\"uid\",\"expiresAt\"])",
+              "id": {
+                ".validate": "newData.isString() && newData.val().length <= 80"
+              },
+              "uid": {
+                ".validate": "newData.val() === auth.uid"
+              },
+              "expiresAt": {
+                ".validate": "newData.isNumber() && newData.val() <= now + 30000 && newData.val() > now"
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
+            "offer": {
+              ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('uid').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished'",
+              ".validate": "newData.hasChildren([\"id\",\"sdp\"])",
+              "id": {
+                ".validate": "newData.val() === root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('id').val()"
+              },
+              "sdp": {
+                ".validate": "newData.isString() && newData.val().length <= 65536"
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
+            "answer": {
+              ".write": "auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished'",
+              ".validate": "newData.hasChildren([\"id\",\"sdp\"])",
+              "id": {
+                ".validate": "newData.val() === root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('id').val()"
+              },
+              "sdp": {
+                ".validate": "newData.isString() && newData.val().length <= 65536"
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
+            "teacherIce": {
+              "$viewerId": {
+                "$id": {
+                  ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('uid').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished' && $viewerId === root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('id').val() && $id.matches(/^([1-9]|[1-5][0-9]|6[0-4])$/)",
+                  ".validate": "newData.isString() && newData.val().length <= 4096"
+                }
+              }
+            },
+            "mobileIce": {
+              "$viewerId": {
+                "$id": {
+                  ".write": "auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).exists() && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished' && $viewerId === root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('id').val() && $id.matches(/^([1-9]|[1-5][0-9]|6[0-4])$/)",
+                  ".validate": "newData.isString() && newData.val().length <= 4096"
+                }
+              }
+            },
+            "recording": {
+              ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('uid').val() === auth.uid && newData.child('viewerId').val() === root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('id').val()",
+              ".validate": "newData.hasChildren([\"id\",\"active\",\"startedAt\",\"viewerId\"])",
+              "id": {
+                ".validate": "newData.isString() && newData.val().length <= 80"
+              },
+              "active": {
+                ".validate": "newData.isBoolean()"
+              },
+              "startedAt": {
+                ".validate": "newData.isNumber()"
+              },
+              "viewerId": {
+                ".validate": "newData.isString() && newData.val().length <= 80"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "recordings": {
+          "$token": {
+            ".read": "auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now)",
+            "$clipId": {
+              ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('mobileSessions').child($session).child('rtc').child($token).child('viewer').child('uid').val() === auth.uid && (!data.exists() || data.child('teacherUid').val() === auth.uid)",
+              ".validate": "newData.hasChildren([\"teacherUid\",\"startedAt\",\"acknowledgedAt\"])",
+              "teacherUid": {
+                ".validate": "newData.val() === auth.uid"
+              },
+              "startedAt": {
+                ".validate": "newData.isNumber()"
+              },
+              "acknowledgedAt": {
+                ".validate": "newData.isNumber()"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "mobileMembers": {
+      "$session": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && !newData.exists() && root.child('sessions').child($session).child('config').child('active').val() !== true",
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'anonymous' && newData.child('token').isString() && root.child('mobileSessions').child($session).child('pairs').child(newData.child('token').val()).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child(newData.child('token').val()).child('studentUid').val() === newData.child('studentUid').val() && root.child('mobileSessions').child($session).child('pairs').child(newData.child('token').val()).child('expiresAt').val() > now",
+          ".validate": "newData.hasChildren(['token','studentUid']) && newData.child('token').isString() && newData.child('studentUid').isString()"
+        }
       }
     }
   }

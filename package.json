@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:rules": "firebase emulators:exec --only database --project demo-preciencia1 \"node tests/database-rules.test.mjs\""
+    "test:rules": "firebase emulators:exec --only database --project demo-preciencia1 \"node tests/database-rules.test.mjs && node tests/mobile-rules.test.mjs\"",
+    "test:mobile": "node --test tests/mobile-core.test.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
