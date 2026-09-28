@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
+using OpenCvSharp;
 
 namespace MonitorEvaluaciones.App;
 
@@ -44,6 +45,7 @@ public sealed class MainForm : Form
     private bool connectedOnce;
     private bool closing;
     private bool presenceOk;
+    private bool pcCameraDetected;
 
     public MainForm(string? initialSession, string? initialStudent = null)
     {
@@ -180,6 +182,7 @@ public sealed class MainForm : Form
         lastCommandId = "";
         finished = false;
         unlockedUntil = null;
+        pcCameraDetected = DetectPcCamera();
 
         if (!await SendPresenceAsync(true))
         {
@@ -427,12 +430,13 @@ public sealed class MainForm : Form
                 uid = firebaseAuth.LocalId,
                 name = studentName,
                 app = "windows-webview2",
-                version = "0.9",
+                version = "0.10",
                 lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 connected,
                 state = finished ? "finished" : IsUnlocked ? "unlocked" : "locked",
                 currentUrl = browser.Source?.ToString() ?? "",
-                eventCapture = recorder.IsRunning
+                eventCapture = recorder.IsRunning,
+                cameraPc = pcCameraDetected
             };
             using var response = await http.PutAsJsonAsync(url, payload);
             presenceOk = response.IsSuccessStatusCode;
@@ -440,6 +444,19 @@ public sealed class MainForm : Form
             return presenceOk;
         }
         catch { presenceOk = false; return false; }
+    }
+
+    private static bool DetectPcCamera()
+    {
+        try
+        {
+            using var camera = new VideoCapture(0, VideoCaptureAPIs.DSHOW);
+            return camera.IsOpened();
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool IsUnlocked => unlockedUntil.HasValue && unlockedUntil.Value > DateTimeOffset.UtcNow;
@@ -584,4 +601,5 @@ public sealed class SessionConfig
 
 public sealed class AllowedSite { public string Url { get; set; } = ""; public string Scope { get; set; } = "exact"; }
 public sealed class RemoteCommand { public string Id { get; set; } = ""; public string Action { get; set; } = ""; public long IssuedAt { get; set; } public long ExpiresAt { get; set; } public int DurationSec { get; set; } }
+
 
