@@ -8,7 +8,7 @@ La evaluación habitual conserva la aplicación Windows, la vista docente, sus c
 - Firebase Authentication anónima para el celular y la Realtime Database ya usada por el Monitor. Las reglas permiten crear un QR individual de 5 minutos, reclamarlo una sola vez y reanudarlo en la misma identidad móvil durante la evaluación.
 - WebRTC con conexión directa y un servidor STUN público para descubrir la ruta. No hay TURN ni retransmisión de video por Firebase. Si las redes bloquean la conexión directa, el docente recibe una alerta y puede usar la segunda cámara de Meet como alternativa. **No se garantiza video en todas las redes.**
 - `MediaRecorder` en el navegador docente. Al detener una grabación, el clip queda en memoria hasta que el docente pulsa **Descargar clip** o **Descartar**. No se sube a Cloud Storage ni a Drive. Cerrar forzosamente Chrome antes de descargarlo puede perderlo.
-- Realtime Database almacena solo estado, señalización y eventos con hora. Nunca recibe fotogramas ni clips móviles.
+- Realtime Database almacena solo estado, señalización y eventos con hora. La señalización WebRTC puede contener direcciones IP de los participantes. Nunca recibe fotogramas ni clips móviles.
 
 No se despliegan Cloud Functions, Cloud Scheduler, Storage ni un servidor TURN. Por lo tanto, este piloto puede ejecutarse en un proyecto Firebase **Spark**, sin asociar una tarjeta. Los límites gratuitos de RTDB corresponden a todo el proyecto, incluido el Monitor actual; una evaluación grande puede alcanzar el máximo de conexiones o descargas. Si el proyecto existente ya está en Blaze, este código por sí solo no impide cargos por superar sus cuotas.
 

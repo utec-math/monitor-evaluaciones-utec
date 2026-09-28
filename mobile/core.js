@@ -11,6 +11,7 @@ export function mobileState(status, now, live = false) {
   if (!status.connected || now - status.lastSeen > STALE_MS)
     return { level: 'warning', text: 'Celular sin señal reciente' };
   if (!status.visible) return { level: 'warning', text: 'Página del celular oculta' };
+  if (!status.focused) return { level: 'warning', text: 'Página del celular sin foco' };
   if (!status.camera) return { level: 'warning', text: 'Cámara interrumpida' };
   if (!live) return { level: 'pending', text: 'Celular conectado · esperando video' };
   return { level: 'ok', text: 'Cámara en directo · sin grabación' };

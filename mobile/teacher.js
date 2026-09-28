@@ -68,6 +68,9 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
       if (ended) this.disconnect('evaluation_finished');
       const supervisionLive = this.live || this.graceUntil > now();
       const state = ended ? { level: 'pending', text: 'Cámara finalizada' } : mobileState(status, now(), supervisionLive);
+      if (!ended && this.connectionFailed && !this.live && state.level === 'pending') {
+        state.level = 'warning'; state.text = 'Video directo no disponible en esta red';
+      }
       if (!dbOnline) { state.level = 'warning'; state.text = 'Tu panel está sin conexión'; }
       this.state.textContent = this.recorder.state !== 'idle' ? '● Grabando cámara móvil' : state.text;
       this.state.dataset.level = state.level;
@@ -125,7 +128,7 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
     }
     async view() {
       if (this.peer || this.connecting || !this.token) return;
-      this.connecting = true; const generation = ++this.generation; this.id = crypto.randomUUID();
+      this.connecting = true; this.connectionFailed = false; const generation = ++this.generation; this.id = crypto.randomUUID();
       const id = this.id, rtc = this.rtc;
       try {
         const result = await runTransaction(ref(db, `${rtc}/viewer`), current => {
@@ -147,10 +150,10 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
               this.graceUntil = now() + 5000;
               clearTimeout(this.connectionTimer);
               this.connectionTimer = setTimeout(() => {
-                if (this.peer && this.graceUntil <= now()) { this.live = false; this.stop('video_interrupted'); this.say('Video interrumpido. Cerrá el video y pulsá «Ver cámara» para reconectar.'); this.refresh(); }
+                if (this.peer && this.graceUntil <= now()) { this.live = false; this.connectionFailed = true; this.stop('video_interrupted'); this.say('Video interrumpido. Cerrá el video y pulsá «Ver cámara» para reconectar.'); this.refresh(); }
               }, 5200);
             } else if (['failed', 'closed'].includes(state)) {
-              this.live = false; this.stop('video_interrupted'); this.say('No se pudo mantener la conexión directa. Cerrá el video y reintentá; si esta red lo impide, usá la segunda cámara de Meet.');
+              this.live = false; this.connectionFailed = true; this.stop('video_interrupted'); this.say('No se pudo mantener la conexión directa. Cerrá el video y reintentá; si esta red lo impide, usá la segunda cámara de Meet.');
             }
             this.refresh();
           }, onError: error => this.say(`Conexión de video: ${error.message || 'no disponible'}`) });
@@ -158,6 +161,7 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
         await this.peer.offer();
         this.connectionTimer = setTimeout(() => {
           if (this.peer && !this.live) {
+            this.connectionFailed = true;
             this.disconnect('direct_connection_failed');
             this.say('No se logró una conexión directa en esta red. Podés reintentar o usar la segunda cámara de Meet.');
             this.refresh();

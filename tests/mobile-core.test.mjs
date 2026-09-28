@@ -42,11 +42,12 @@ test('ended or muted video cannot start a recording', () => {
   assert.equal(recordingMime({ isTypeSupported: () => false }), '');
 });
 test('fresh heartbeat without real video is not labelled live', () => {
-  const status = { connected: true, lastSeen: 1000, visible: true, camera: true };
+  const status = { connected: true, lastSeen: 1000, visible: true, focused: true, camera: true };
   assert.equal(mobileState(status, 1001, false).level, 'pending');
   assert.equal(mobileState(status, 1001, true).level, 'ok');
   assert.equal(mobileState(status, 22000, true).level, 'warning');
   assert.equal(mobileState({ ...status, visible: false }, 1001, true).text, 'Página del celular oculta');
+  assert.equal(mobileState({ ...status, focused: false }, 1001, true).text, 'Página del celular sin foco');
 });
 test('QR identifiers reject paths and special characters', () => {
   assert.ok(validKey('EVAL-TEST_1')); assert.ok(!validKey('../other')); assert.ok(!validKey(null));
