@@ -33,11 +33,13 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
       this.actions = element('div', 'mobile-actions');
       this.pairButton = button('Generar QR', () => this.pair());
       this.viewButton = button('Ver cámara', () => this.view());
+      this.expandButton = button('Ampliar imagen', () => this.toggleSize());
+      this.expandButton.setAttribute('aria-pressed', 'false');
       this.startButton = button('Grabar', () => this.start());
       this.stopButton = button('Detener grabación', () => this.stop('manual'));
       this.closeButton = button('Cerrar video', () => this.disconnect('viewer_closed'));
       this.stopButton.className = 'mobile-danger';
-      this.actions.append(this.pairButton, this.viewButton, this.startButton, this.stopButton, this.closeButton);
+      this.actions.append(this.expandButton, this.pairButton, this.viewButton, this.startButton, this.stopButton, this.closeButton);
       this.qr = element('div', 'mobile-qr');
       this.message = element('p', 'mobile-message');
       this.events = element('div', 'mobile-events');
@@ -50,6 +52,11 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
     get rtc() { return `${this.path}/rtc/${this.token}`; }
     get busy() { return this.starting || this.recorder.state !== 'idle' || this.pendingClips.size > 0; }
     say(text) { this.message.textContent = text; }
+    toggleSize() {
+      const expanded = this.root.classList.toggle('mobile-expanded');
+      this.expandButton.textContent = expanded ? 'Reducir imagen' : 'Ampliar imagen';
+      this.expandButton.setAttribute('aria-pressed', String(expanded));
+    }
     async log(type) {
       if (!this.token || !dbOnline) return;
       const id = `${type}_${this.id || 'panel'}_${Math.floor(now() / 2000)}`.slice(0, 80);
@@ -187,10 +194,10 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
       this.clipId = id;
       try {
         await set(ref(db, `${rtc}/recording`), { id, active: true, startedAt: now(), viewerId });
-        // The phone displays the indicator before acknowledging. Do not record without it.
+        // The phone confirms camera and connection state before local capture starts.
         const deadline = Date.now() + 6000;
         while (this.status?.recordingAck !== id && Date.now() < deadline && !this.cancelStart && dbOnline && this.live) await delay(100);
-        if (this.cancelStart || !dbOnline || !this.live || this.status?.recordingAck !== id || token !== this.token) throw new Error('El celular no confirmó el aviso. No se inició la grabación.');
+        if (this.cancelStart || !dbOnline || !this.live || this.status?.recordingAck !== id || token !== this.token) throw new Error('El celular no confirmó la conexión. No se inició la grabación.');
         const startedAt = now();
         await set(ref(db, `${this.path}/recordings/${token}/${id}`), { teacherUid: auth.currentUser.uid, startedAt, acknowledgedAt: serverTimestamp() });
         if (this.cancelStart || !this.live) throw new Error('Grabación cancelada antes de comenzar.');
