@@ -1,8 +1,9 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow"><title>Vincular celular</title><link rel="stylesheet" href="mobile/mobile.css"></head>
-<body class="mobile-page"><main class="mobile-shell"><h1>Vincular celular</h1><p>Escaneá este QR con tu teléfono. Es individual y vence a los 5 minutos.</p><div id="qr"></div><p id="message">La cámara se activa únicamente cuando lo aceptás en el teléfono. El docente puede grabar clips manualmente, con un aviso visible.</p><p>Cerrá esta ventana para continuar la evaluación. El celular debe permanecer en su página.</p></main>
+<body class="mobile-page"><main class="mobile-shell"><h1>Vincular celular</h1><p>Escaneá este QR con tu teléfono. Es individual y vence a los 5 minutos.</p><div id="qr"></div><p id="message">La cámara se activa únicamente cuando aceptás las condiciones en el teléfono. Allí se informa que el docente puede grabar fragmentos durante la evaluación sin avisos adicionales.</p><p>Cerrá esta ventana para continuar la evaluación. El celular debe permanecer en su página.</p></main>
 <script src="vendor/qrcode.min.js"></script><script type="module">
 import {validKey} from './mobile/core.js';
 const p=new URLSearchParams(location.hash.slice(1));
 if(validKey(p.get('session'))&&validKey(p.get('token'))){const url=new URL('celular.html',location.href);url.hash=p.toString();new QRCode(document.getElementById('qr'),{text:url.href,width:240,height:240,correctLevel:QRCode.CorrectLevel.M});}
 else document.getElementById('message').textContent='Enlace inválido. Pedile al docente un nuevo QR.';
 </script></body></html>
+

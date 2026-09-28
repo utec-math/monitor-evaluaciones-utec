@@ -1,6 +1,6 @@
 # Cámara móvil opcional — piloto sin facturación
 
-La evaluación habitual conserva la aplicación Windows, la vista docente, sus comandos y los clips de pantalla existentes. Esta versión añade una cámara móvil opcional por estudiante. No analiza imágenes, no captura audio y no graba hasta que el docente pulsa **Grabar**. El teléfono muestra el aviso antes de confirmar el inicio.
+La evaluación habitual conserva la aplicación Windows, la vista docente, sus comandos y los clips de pantalla existentes. Esta versión añade una cámara móvil opcional por estudiante, que el docente ve en miniatura y puede ampliar. No analiza imágenes, no captura audio y no graba hasta que el docente pulsa **Grabar**. El estudiante acepta antes de compartir la cámara que el docente puede grabar fragmentos durante la evaluación sin avisos adicionales en el celular.
 
 ## Qué utiliza
 
@@ -20,7 +20,7 @@ No se despliegan Cloud Functions, Cloud Scheduler, Storage ni un servidor TURN. 
 2. El celular abre `celular.html`, reclama el vínculo con una cuenta anónima y pide permiso para la cámara. El QR vence a los 5 minutos; regenerarlo revoca el anterior.
 3. El celular informa visibilidad, foco, estado de cámara y una señal cada 5 segundos. A los 20 segundos sin señal el panel alerta. Esto no identifica qué otra aplicación abrió el estudiante.
 4. **Ver cámara** abre una conexión directa. Solo un panel docente puede reservar esa cámara a la vez. Si no conecta en 20 segundos, se informa el fallo.
-5. **Grabar** solicita el aviso visible en el celular y espera su confirmación. **Detener grabación** genera un clip local. Se cierra al cortar supervisión o terminar evaluación; no se reanuda automáticamente. Límite: 15 minutos o aproximadamente 20 MB por clip.
+5. **Grabar** espera una confirmación técnica de que el celular sigue conectado y con la cámara activa, sin mostrar un aviso nuevo al estudiante. **Detener grabación** genera un clip local. Se cierra al cortar supervisión o terminar evaluación; no se reanuda automáticamente. Límite: 15 minutos o aproximadamente 20 MB por clip.
 6. El panel intenta borrar los datos móviles de RTDB cuando una evaluación queda cerrada y el docente mantiene o vuelve a abrir la vista. Sin un servidor programado no se puede garantizar borrado físico automático si nadie vuelve al panel. El acceso móvil vence a las 24 horas; el docente debe revisar y borrar sesiones abandonadas. Los archivos descargados quedan bajo custodia docente según la política institucional.
 
 ## Para probar con dos dispositivos
@@ -29,8 +29,8 @@ No se despliegan Cloud Functions, Cloud Scheduler, Storage ni un servidor TURN. 
 
 1. Abrir [el panel docente](https://utec-math.github.io/monitor-evaluaciones-utec/docente.html) con la cuenta docente actual en Chrome. Crear una sesión de prueba con datos ficticios.
 2. Descargar [el ZIP del estudiante para la prueba](https://drive.google.com/file/d/1FTakk2leVUJsw1WlT3xGbsvjUe3BLCjg/view?usp=drivesdk), extraerlo y ejecutar la aplicación Windows incluida. Usar la misma sesión de prueba. El QR se genera desde el panel cuando el estudiante aparece conectado.
-3. En Chrome docente, generar QR; en Android Chrome o iPhone Safari, escanearlo y permitir cámara. Verificar video directo, cambio de aplicación, pantalla bloqueada y Wi-Fi cortado.
-4. Verificar que mirar no crea un clip. Pulsar **Grabar**, comprobar aviso en el teléfono, esperar 10 segundos, detener y descargar el archivo. Revisar que contenga imagen y no audio. Probar también la red de datos móviles; puede fallar sin TURN.
+3. En Chrome docente, generar QR; en Android Chrome o iPhone Safari, escanearlo y permitir cámara. Verificar video directo en miniatura, ampliación y reducción, cambio de aplicación, pantalla bloqueada y Wi-Fi cortado.
+4. Verificar que mirar no crea un clip. Pulsar **Grabar**, comprobar que no aparece un aviso nuevo en el teléfono, esperar 10 segundos, detener y descargar el archivo. Revisar que contenga imagen y no audio. Probar también la red de datos móviles; puede fallar sin TURN.
 5. Cerrar la sesión y comprobar que los datos móviles se eliminan de RTDB. Revisar manualmente sesiones abandonadas y los clips locales.
 
 Las pruebas de código se ejecutan con `npm run test:mobile` y `npm run test:rules`; el segundo comando usa el emulador de RTDB y Java 21. La prueba de navegador `tests/browser-media-smoke.cjs` requiere Playwright y todavía se mantiene separada de CI porque debe verificarse junto con dispositivos reales.
