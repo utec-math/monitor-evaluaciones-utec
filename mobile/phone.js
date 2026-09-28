@@ -1,4 +1,4 @@
-import { initializeApp, getAuth, signInAnonymously, setPersistence, browserSessionPersistence, getDatabase, ref, get, set, update, onValue, onDisconnect, serverTimestamp } from './firebase.js';
+import { initializeApp, getAuth, signInAnonymously, setPersistence, browserSessionPersistence, getDatabase, ref, get, set, onValue, serverTimestamp } from './firebase.js';
 import { firebaseConfig } from '../firebase-config.js';
 import { mobileConfig } from '../mobile-config.js';
 import { validKey, MAX_EVENTS } from './core.js';
@@ -110,16 +110,10 @@ async function start() {
       firebaseOnline = snap.val() === true;
       showRecording();
       if (firebaseOnline && started) {
-        try {
-          // Registration is validated even before the first heartbeat. Include
-          // every required status field so a newly paired phone is accepted.
-          await onDisconnect(ref(db, statusPath)).update({
-            connected: false, lastSeen: serverTimestamp(), visible: false,
-            focused: false, camera: false, recordingAck: ''
-          });
-          if (!started) return;
-          await presence(); await event('connected');
-        } catch { stop('No se pudo registrar la conexión.'); }
+        // A missed heartbeat is visible to the teacher after 20 seconds.
+        // Do not block the camera on a separate disconnect registration.
+        await presence();
+        if (started) await event('connected');
       } else if (started) say('Sin conexión con el monitor. Intentando reconectar…');
     }));
     timer = setInterval(() => { if (now() >= identity.expiresAt) stop('El vínculo venció.'); else presence(); }, mobileConfig.heartbeatMs);
