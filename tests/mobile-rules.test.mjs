@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { ref, get, set, update } from 'firebase/database';
+import { ref, get, set, update, onDisconnect, serverTimestamp } from 'firebase/database';
 const [host, port] = (process.env.FIREBASE_DATABASE_EMULATOR_HOST || '127.0.0.1:9000').split(':');
 const env = await initializeTestEnvironment({ projectId: 'demo-preciencia1', database: { host, port: Number(port), rules: await readFile(new URL('../database.rules.json', import.meta.url), 'utf8') } });
 const db = id => env.authenticatedContext(id).database(`http://${host}:${port}?ns=demo-preciencia1-default-rtdb`);
@@ -29,6 +29,12 @@ try {
   await assertSucceeds(set(ref(newPhone, `mobileMembers/EVAL-TEST/new-phone`), { token: newToken, studentUid: 'student' }));
   await assertSucceeds(get(ref(newPhone, `${base}/pairs/${newToken}`)));
   await assertSucceeds(get(ref(newPhone, 'sessions/EVAL-TEST/clients/student/name')));
+  // A fresh phone must be able to register its disconnect handler before its
+  // first heartbeat; status validation requires the complete record.
+  const disconnect = onDisconnect(ref(newPhone, `${base}/status/${newToken}`));
+  await assertSucceeds(disconnect.update({ connected: false, lastSeen: serverTimestamp(),
+    visible: false, focused: false, camera: false, recordingAck: '' }));
+  await disconnect.cancel();
   await assertFails(set(ref(other, `${base}/pairs/${newToken}/claimedBy`), 'other'));
   await assertSucceeds(get(ref(pc, `${base}/links/student`)));
   await assertFails(get(ref(other, `${base}/links/student`)));
@@ -67,3 +73,4 @@ try {
   await assertFails(set(ref(phone, `${base}/rtc/token/answer`), { id: 'v1', sdp: 'test-answer' }));
   console.log('Mobile isolation, recording authority, lease, revocation and session closure tests passed.');
 } finally { await env.cleanup(); }
+
