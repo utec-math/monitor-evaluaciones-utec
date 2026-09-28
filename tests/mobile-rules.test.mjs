@@ -5,6 +5,7 @@ const [host, port] = (process.env.FIREBASE_DATABASE_EMULATOR_HOST || '127.0.0.1:
 const env = await initializeTestEnvironment({ projectId: 'demo-preciencia1', database: { host, port: Number(port), rules: await readFile(new URL('../database.rules.json', import.meta.url), 'utf8') } });
 const db = id => env.authenticatedContext(id).database(`http://${host}:${port}?ns=demo-preciencia1-default-rtdb`);
 const admin = db('teacher'), phone = db('phone'), other = db('other'), pc = db('student');
+const newPhone = env.authenticatedContext('new-phone', { firebase: { sign_in_provider: 'anonymous' } }).database(`http://${host}:${port}?ns=demo-preciencia1-default-rtdb`);
 const base = 'mobileSessions/EVAL-TEST', now = Date.now();
 try {
   await env.withSecurityRulesDisabled(async c => {
@@ -17,6 +18,18 @@ try {
     await set(ref(root, 'mobileMembers/EVAL-TEST/phone'), { token: 'token', studentUid: 'student' });
   });
   const status = { connected: true, lastSeen: now, camera: true, visible: true, focused: true, recordingAck: '' };
+  const newToken = 'a'.repeat(48), createdAt = Date.now();
+  await assertSucceeds(update(ref(admin, base), {
+    [`pairs/${newToken}`]: { studentUid: 'student', claimedBy: '', revoked: false, createdAt,
+      inviteExpiresAt: createdAt + 300000, expiresAt: createdAt + 86400000 },
+    'links/student': { token: newToken, inviteExpiresAt: createdAt + 300000 }
+  }));
+  await assertFails(get(ref(newPhone, `${base}/pairs/${newToken}`)));
+  await assertSucceeds(set(ref(newPhone, `${base}/pairs/${newToken}/claimedBy`), 'new-phone'));
+  await assertSucceeds(set(ref(newPhone, `mobileMembers/EVAL-TEST/new-phone`), { token: newToken, studentUid: 'student' }));
+  await assertSucceeds(get(ref(newPhone, `${base}/pairs/${newToken}`)));
+  await assertSucceeds(get(ref(newPhone, 'sessions/EVAL-TEST/clients/student/name')));
+  await assertFails(set(ref(other, `${base}/pairs/${newToken}/claimedBy`), 'other'));
   await assertSucceeds(get(ref(pc, `${base}/links/student`)));
   await assertFails(get(ref(other, `${base}/links/student`)));
   await assertFails(get(ref(other, `${base}/pairs/token`)));

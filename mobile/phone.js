@@ -1,4 +1,4 @@
-import { initializeApp, getAuth, signInAnonymously, setPersistence, browserSessionPersistence, getDatabase, ref, get, set, update, onValue, onDisconnect, serverTimestamp, getFunctions, httpsCallable } from './firebase.js';
+import { initializeApp, getAuth, signInAnonymously, setPersistence, browserSessionPersistence, getDatabase, ref, get, set, update, onValue, onDisconnect, serverTimestamp } from './firebase.js';
 import { firebaseConfig } from '../firebase-config.js';
 import { mobileConfig } from '../mobile-config.js';
 import { validKey, MAX_EVENTS } from './core.js';
@@ -8,14 +8,24 @@ const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.hash.slice(1));
 const session = params.get('session'), token = params.get('token');
 const app = initializeApp(firebaseConfig, 'mobile-phone');
-const auth = getAuth(app), db = getDatabase(app), functions = getFunctions(app, mobileConfig.region);
+const auth = getAuth(app), db = getDatabase(app);
 let stream, peer, timer, wakeLock, started = false, starting = false, firebaseOnline = false, offset = 0;
 let recordingAck = '', recordingCommand = null, viewer = null, generation = 0, cameraActive = false;
 let cleanups = [], eventSequence = 0, eventLast = '', eventLastAt = 0;
 const base = `mobileSessions/${session}`, statusPath = `${base}/status/${token}`, rtcPath = `${base}/rtc/${token}`;
 const now = () => Date.now() + offset;
 const say = text => { $('mobileStatus').textContent = text; };
-const call = (name, data = {}) => httpsCallable(functions, name)({ session, token, ...data }).then(r => r.data);
+async function claimPair() {
+  const pairPath = `${base}/pairs/${token}`;
+  // The unguessable QR token is the invitation. Rules permit only the first
+  // anonymous account to write its own UID, or that same account to resume.
+  await set(ref(db, `${pairPath}/claimedBy`), auth.currentUser.uid);
+  const pair = (await get(ref(db, pairPath))).val();
+  if (!pair || pair.claimedBy !== auth.currentUser.uid) throw new Error('El QR ya no está disponible.');
+  await set(ref(db, `mobileMembers/${session}/${auth.currentUser.uid}`), { token, studentUid: pair.studentUid });
+  const name = (await get(ref(db, `sessions/${session}/clients/${pair.studentUid}/name`))).val();
+  return { studentUid: pair.studentUid, name: name || 'Estudiante', expiresAt: pair.expiresAt };
+}
 
 async function event(type) {
   if (!started || !firebaseOnline || eventSequence >= MAX_EVENTS) return;
@@ -58,7 +68,7 @@ async function acceptOffer(offer) {
   const attempt = ++generation;
   peer?.close(); peer = null;
   try {
-    const { iceServers } = await call('mobileIceServers');
+    const { iceServers } = mobileConfig;
     if (!started || attempt !== generation) return;
     peer = new VideoPeer({ db, path: rtcPath, id: offer.id, iceServers, role: 'mobile', stream,
       onState: state => { if (started) say(state === 'connected' ? 'Cámara compartida con el docente.' : 'Conectando video con el docente…'); },
@@ -72,7 +82,7 @@ async function start() {
   starting = true; $('startCamera').disabled = true;
   try {
     if (!isSecureContext || !navigator.mediaDevices?.getUserMedia) throw new Error('Abrí esta página con HTTPS en un navegador con cámara.');
-    const identity = await call('claimMobilePair');
+    const identity = await claimPair();
     $('mobileIdentity').textContent = `${identity.name} · Sesión ${session}`;
     // Resume the bounded event counter after a reload; no images are retained.
     const existing = (await get(ref(db, `${base}/events/${token}`))).val() || {};

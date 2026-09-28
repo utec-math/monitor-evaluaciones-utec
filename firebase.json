@@ -7,11 +7,5 @@
     "database": {
       "port": 9000
     }
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "mobile-camera"
-    }
-  ]
+  }
 }

@@ -71,7 +71,8 @@
               ".validate": "newData.isString() && newData.val() === $uid && (!data.exists() || data.val() === newData.val())"
             },
             "name": {
-              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160"
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 160",
+              ".read": "auth != null && root.child('mobileMembers').child($session).child(auth.uid).exists() && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child(root.child('mobileMembers').child($session).child(auth.uid).child('token').val()).child('expiresAt').val() > now && root.child('mobileMembers').child($session).child(auth.uid).child('studentUid').val() === $uid"
             },
             "lastSeen": {
               ".validate": "newData.isNumber() && newData.val() <= now + 60000"
@@ -149,9 +150,16 @@
     "mobileSessions": {
       "$session": {
         ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && !newData.exists() && root.child('sessions').child($session).child('config').child('active').val() !== true",
         "pairs": {
           "$token": {
             ".read": "auth != null && root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('mobileSessions').child($session).child('pairs').child($token).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now)",
+            ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && !data.exists() && newData.child('studentUid').isString() && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(newData.child('studentUid').val()).child('uid').val() === newData.child('studentUid').val() && root.child('sessions').child($session).child('clients').child(newData.child('studentUid').val()).child('state').val() !== 'finished' && newData.child('createdAt').val() >= now - 60000 && newData.child('createdAt').val() <= now + 60000 && $token.matches(/^[a-f0-9]{48}$/)",
+            ".validate": "newData.hasChildren(['studentUid','claimedBy','revoked','createdAt','inviteExpiresAt','expiresAt']) && newData.child('inviteExpiresAt').val() === newData.child('createdAt').val() + 300000 && newData.child('expiresAt').val() === newData.child('createdAt').val() + 86400000",
+            "claimedBy": {
+              ".write": "auth != null && auth.token.firebase.sign_in_provider === 'anonymous' && newData.val() === auth.uid && (data.val() === auth.uid || (data.val() === '' && root.child('mobileSessions').child($session).child('pairs').child($token).child('inviteExpiresAt').val() > now)) && root.child('mobileSessions').child($session).child('pairs').child($token).child('revoked').val() === false && root.child('mobileSessions').child($session).child('pairs').child($token).child('expiresAt').val() > now && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child(root.child('mobileSessions').child($session).child('pairs').child($token).child('studentUid').val()).child('state').val() !== 'finished'",
+              ".validate": "newData.isString() && newData.val().length <= 160"
+            },
             "revoked": {
               ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
               ".validate": "newData.isBoolean()"
@@ -160,7 +168,9 @@
         },
         "links": {
           "$uid": {
-            ".read": "auth != null && auth.uid === $uid"
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && root.child('sessions').child($session).child('config').child('active').val() === true && root.child('sessions').child($session).child('clients').child($uid).child('uid').val() === $uid",
+            ".validate": "newData.hasChildren(['token','inviteExpiresAt']) && newData.child('token').isString() && newData.child('token').val().matches(/^[a-f0-9]{48}$/) && newData.child('inviteExpiresAt').isNumber() && newData.child('inviteExpiresAt').val() <= now + 360000 && newData.child('inviteExpiresAt').val() > now"
           }
         },
         "status": {
@@ -325,8 +335,11 @@
     },
     "mobileMembers": {
       "$session": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && !newData.exists() && root.child('sessions').child($session).child('config').child('active').val() !== true",
         "$uid": {
-          ".read": "auth != null && auth.uid === $uid"
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'anonymous' && newData.child('token').isString() && root.child('mobileSessions').child($session).child('pairs').child(newData.child('token').val()).child('claimedBy').val() === auth.uid && root.child('mobileSessions').child($session).child('pairs').child(newData.child('token').val()).child('studentUid').val() === newData.child('studentUid').val() && root.child('mobileSessions').child($session).child('pairs').child(newData.child('token').val()).child('expiresAt').val() > now",
+          ".validate": "newData.hasChildren(['token','studentUid']) && newData.child('token').isString() && newData.child('studentUid').isString()"
         }
       }
     }
