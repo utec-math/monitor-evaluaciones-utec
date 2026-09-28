@@ -28,6 +28,7 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
       this.state = element('p', 'mobile-state');
       this.video = element('video'); Object.assign(this.video, { autoplay: true, muted: true, playsInline: true });
       this.video.setAttribute('aria-label', 'Cámara del celular en directo');
+      this.videoPlaceholder = element('p', 'mobile-video-placeholder', 'Sin imagen en directo. Activá la cámara en el celular y pulsá «Ver cámara».');
       this.recording = element('p', 'mobile-recording', '● Grabando cámara móvil'); this.recording.hidden = true;
       this.actions = element('div', 'mobile-actions');
       this.pairButton = button('Generar QR', () => this.pair());
@@ -41,7 +42,7 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
       this.message = element('p', 'mobile-message');
       this.events = element('div', 'mobile-events');
       this.clips = element('div');
-      this.root.append(this.name, this.state, this.video, this.recording, this.actions, this.qr, this.message, this.events, this.clips);
+      this.root.append(this.name, this.state, this.videoPlaceholder, this.video, this.recording, this.actions, this.qr, this.message, this.events, this.clips);
       container.append(this.root);
       this.recorder = new ManualRecorder({ onComplete: clip => this.complete(clip), onError: error => this.say(error.message), onLimit: text => this.say(text) });
     }
@@ -74,6 +75,10 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
       if (!dbOnline) { state.level = 'warning'; state.text = 'Tu panel está sin conexión'; }
       this.state.textContent = this.recorder.state !== 'idle' ? '● Grabando cámara móvil' : state.text;
       this.state.dataset.level = state.level;
+      this.video.hidden = !(this.live && this.video.videoWidth > 0);
+      this.videoPlaceholder.hidden = !this.video.hidden;
+      this.videoPlaceholder.textContent = this.connecting || (this.peer && !this.live)
+        ? 'Conectando video del celular…' : 'Sin imagen en directo. Activá la cámara en el celular y pulsá «Ver cámara».';
       this.recording.hidden = this.recorder.state === 'idle';
       const lease = data.rtc?.[this.token]?.viewer;
       if (this.peer && ((lease?.id && lease.id !== this.id && lease.expiresAt > now()) || this.leaseExpiresAt <= now())) this.disconnect('viewer_lease_lost');
@@ -282,3 +287,4 @@ export function createMobilePanel({ db, auth, container, beep, soundEnabled }) {
     dispose() { disposed = true; clearInterval(interval); unsubscribe?.(); cards.forEach(c => c.destroy()); cards.clear(); }
   };
 }
+
